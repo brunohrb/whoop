@@ -11,7 +11,7 @@ const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/whoop-auth-callback`
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
+  const state = url.searchParams.get("state") // contém o access_token do usuário
   const error = url.searchParams.get("error")
 
   if (error) {
@@ -22,25 +22,19 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${APP_URL}/configuracoes?whoop_error=parametros_invalidos`)
   }
 
+  // Verificar o JWT (state) com Supabase para obter o user_id
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: `Bearer ${state}` } },
+  })
 
-  // Verificar e consumir o state (proteção CSRF)
-  const { data: stateData, error: stateError } = await supabase
-    .schema("whoop")
-    .from("oauth_states")
-    .select("user_id")
-    .eq("state", state)
-    .gt("expires_at", new Date().toISOString())
-    .single()
-
-  if (stateError || !stateData) {
-    console.error("State inválido:", stateError)
-    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=state_invalido`)
+  const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
+  if (userError || !user) {
+    console.error("JWT inválido no state:", userError)
+    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=sessao_invalida`)
   }
 
-  await supabase.schema("whoop").from("oauth_states").delete().eq("state", state)
-
-  // Trocar código por tokens
+  // Trocar código por tokens WHOOP
   const tokenRes = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -84,35 +78,46 @@ Deno.serve(async (req: Request) => {
     console.error("Erro ao buscar medidas:", e)
   }
 
-  // Salvar tokens
-  await supabase.schema("whoop").from("user_tokens").upsert(
-    {
-      user_id: stateData.user_id,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token ?? null,
-      token_type: tokens.token_type ?? "Bearer",
-      expires_at: expiresAt,
-      scope: tokens.scope ?? null,
-      whoop_user_id: whoopProfile?.user_id ?? null,
-    },
-    { onConflict: "user_id" }
-  )
-
-  // Salvar perfil
-  if (whoopProfile) {
-    await supabase.schema("whoop").from("profiles").upsert(
+  // Salvar tokens usando service_role (bypassa RLS)
+  const { error: tokenSaveErr } = await supabase
+    .schema("whoop")
+    .from("user_tokens")
+    .upsert(
       {
-        user_id: stateData.user_id,
-        whoop_user_id: whoopProfile.user_id ?? null,
-        email: whoopProfile.email ?? null,
-        first_name: whoopProfile.first_name ?? null,
-        last_name: whoopProfile.last_name ?? null,
-        height_meter: bodyData?.height_meter ?? null,
-        weight_kilogram: bodyData?.weight_kilogram ?? null,
-        max_heart_rate: bodyData?.max_heart_rate ?? null,
+        user_id: user.id,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token ?? null,
+        token_type: tokens.token_type ?? "Bearer",
+        expires_at: expiresAt,
+        scope: tokens.scope ?? null,
+        whoop_user_id: whoopProfile?.user_id ?? null,
       },
       { onConflict: "user_id" }
     )
+
+  if (tokenSaveErr) {
+    console.error("Erro ao salvar tokens:", tokenSaveErr)
+    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=erro_salvar_tokens`)
+  }
+
+  // Salvar perfil
+  if (whoopProfile) {
+    await supabase
+      .schema("whoop")
+      .from("profiles")
+      .upsert(
+        {
+          user_id: user.id,
+          whoop_user_id: whoopProfile.user_id ?? null,
+          email: whoopProfile.email ?? null,
+          first_name: whoopProfile.first_name ?? null,
+          last_name: whoopProfile.last_name ?? null,
+          height_meter: bodyData?.height_meter ?? null,
+          weight_kilogram: bodyData?.weight_kilogram ?? null,
+          max_heart_rate: bodyData?.max_heart_rate ?? null,
+        },
+        { onConflict: "user_id" }
+      )
   }
 
   return Response.redirect(`${APP_URL}/configuracoes?whoop_connected=true`)

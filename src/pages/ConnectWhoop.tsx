@@ -21,13 +21,11 @@ export default function ConnectWhoop() {
     setError(null)
 
     try {
-      const state = crypto.randomUUID()
-      const { error: stateError } = await supabase
-        .schema('whoop')
-        .from('oauth_states')
-        .insert({ state, user_id: user.id })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Sessão expirada, faça login novamente')
 
-      if (stateError) throw stateError
+      // Usa o access_token como state — verificado pelo edge function via Supabase Auth
+      const state = session.access_token
 
       const params = new URLSearchParams({
         client_id: import.meta.env.VITE_WHOOP_CLIENT_ID as string,
