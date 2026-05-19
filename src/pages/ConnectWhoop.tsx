@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
@@ -15,31 +14,21 @@ export default function ConnectWhoop() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     if (!user) return
     setLoading(true)
     setError(null)
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Sessão expirada, faça login novamente')
+    // Passa o user_id como state — sem chamada ao banco, sem async
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_WHOOP_CLIENT_ID as string,
+      redirect_uri: CALLBACK_URL,
+      response_type: 'code',
+      scope: SCOPES,
+      state: user.id,
+    })
 
-      // Usa o access_token como state — verificado pelo edge function via Supabase Auth
-      const state = session.access_token
-
-      const params = new URLSearchParams({
-        client_id: import.meta.env.VITE_WHOOP_CLIENT_ID as string,
-        redirect_uri: CALLBACK_URL,
-        response_type: 'code',
-        scope: SCOPES,
-        state,
-      })
-
-      window.location.href = `${WHOOP_OAUTH_URL}?${params}`
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao iniciar conexão')
-      setLoading(false)
-    }
+    window.location.href = `${WHOOP_OAUTH_URL}?${params}`
   }
 
   return (
