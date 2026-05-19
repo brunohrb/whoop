@@ -243,27 +243,28 @@ async function paginateAndSync<T>(
 
   do {
     const pageUrl = nextToken ? `${url}&nextToken=${encodeURIComponent(nextToken)}` : url
+    console.log(`[whoop-sync] GET ${pageUrl}`)
     const res = await fetch(pageUrl, { headers })
 
     if (!res.ok) {
       if (res.status === 429) {
-        // Rate limit: aguardar e tentar novamente
         await new Promise(r => setTimeout(r, 2000))
         continue
       }
-      console.error(`Erro na requisição (${res.status}): ${await res.text()}`)
+      const body = await res.text()
+      console.error(`[whoop-sync] Erro ${res.status} em ${pageUrl}: ${body}`)
       break
     }
 
     const json = await res.json()
     const records: T[] = json.records ?? []
+    console.log(`[whoop-sync] ${pageUrl} → ${records.length} registros, next_token=${json.next_token ?? 'null'}`)
 
     if (records.length > 0) await handler(records)
 
     nextToken = json.next_token ?? null
     page++
 
-    // Pausa para respeitar rate limit (100 req/min)
     if (page % 10 === 0) await new Promise(r => setTimeout(r, 700))
   } while (nextToken && page < 50)
 }
