@@ -93,6 +93,8 @@ Deno.serve(async (req: Request) => {
   let syncedCycles = 0
   let syncedSleeps = 0
   let syncedWorkouts = 0
+  let syncedRecoveries = 0
+  let apiRecoveryCount = 0
 
   try {
     // ── Sincronizar ciclos ─────────────────────────────────────────────────
@@ -124,6 +126,7 @@ Deno.serve(async (req: Request) => {
       headers,
       async (records) => {
         if (!records.length) return
+        apiRecoveryCount += records.length
         const rows = records.map(r => ({
           user_id: user.id,
           cycle_id: r.cycle_id,
@@ -135,7 +138,9 @@ Deno.serve(async (req: Request) => {
           spo2_percentage: r.score?.spo2_percentage ?? null,
           skin_temp_celsius: r.score?.skin_temp_celsius ?? null,
         }))
-        await supabase.schema("whoop").from("recovery").upsert(rows, { onConflict: "cycle_id", ignoreDuplicates: false })
+        const { error: recErr } = await supabase.schema("whoop").from("recovery").upsert(rows, { onConflict: "cycle_id", ignoreDuplicates: false })
+        if (recErr) console.error("Erro upsert recovery:", JSON.stringify(recErr))
+        else syncedRecoveries += rows.length
       }
     )
 
@@ -212,7 +217,7 @@ Deno.serve(async (req: Request) => {
     )
 
     return new Response(
-      JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_sleeps: syncedSleeps, synced_workouts: syncedWorkouts }),
+      JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_recoveries: syncedRecoveries, api_recovery_count: apiRecoveryCount, synced_sleeps: syncedSleeps, synced_workouts: syncedWorkouts }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     )
   } catch (err) {
