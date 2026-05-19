@@ -7,16 +7,26 @@ const WHOOP_CLIENT_ID = Deno.env.get("WHOOP_CLIENT_ID")!
 const WHOOP_CLIENT_SECRET = Deno.env.get("WHOOP_CLIENT_SECRET")!
 const WHOOP_BASE = "https://api.prod.whoop.com/developer/v1"
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
+
   const authHeader = req.headers.get("Authorization")
-  if (!authHeader) return new Response("Unauthorized", { status: 401 })
+  if (!authHeader) return new Response("Unauthorized", { status: 401, headers: CORS_HEADERS })
 
   const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   })
 
   const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
-  if (userError || !user) return new Response("Unauthorized", { status: 401 })
+  if (userError || !user) return new Response("Unauthorized", { status: 401, headers: CORS_HEADERS })
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -31,7 +41,7 @@ Deno.serve(async (req: Request) => {
   if (tokenError || !tokenData) {
     return new Response(JSON.stringify({ error: "WHOOP não conectado" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     })
   }
 
@@ -203,7 +213,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_sleeps: syncedSleeps, synced_workouts: syncedWorkouts }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro desconhecido"
@@ -213,7 +223,7 @@ Deno.serve(async (req: Request) => {
     )
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     })
   }
 })
