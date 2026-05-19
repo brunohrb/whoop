@@ -30,7 +30,7 @@ export default function ConnectWhoop() {
       if (stateError) throw stateError
 
       const params = new URLSearchParams({
-        client_id: '__WHOOP_CLIENT_ID__',
+        client_id: import.meta.env.VITE_WHOOP_CLIENT_ID as string,
         redirect_uri: CALLBACK_URL,
         response_type: 'code',
         scope: SCOPES,

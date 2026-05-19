@@ -35,6 +35,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_WHOOP_CLIENT_ID: ${{ secrets.VITE_WHOOP_CLIENT_ID }}
           VITE_APP_URL: https://brunohrb.github.io/whoop
 
       - name: Configurar Pages
