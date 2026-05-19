@@ -1,0 +1,159 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { useWhoopData } from '../hooks/useWhoopData'
+import { useSync } from '../hooks/useSync'
+import { supabase } from '../lib/supabase'
+
+export default function Settings() {
+  const { user, signOut } = useAuth()
+  const { profile, syncStatus, whoopConnected, refresh } = useWhoopData()
+  const { sync, syncing, error: syncError, lastResult } = useSync(refresh)
+  const navigate = useNavigate()
+  const [whoopError, setWhoopError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('whoop_connected') === 'true') {
+      refresh()
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    const err = params.get('whoop_error')
+    if (err) {
+      setWhoopError(`Erro ao conectar WHOOP: ${err}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [refresh])
+
+  const handleDisconnect = async () => {
+    if (!confirm('Deseja desconectar o WHOOP? Seus dados sincronizados serão mantidos.')) return
+    await supabase.schema('whoop').from('user_tokens').delete().eq('user_id', user?.id)
+    refresh()
+  }
+
+  const lastSync = syncStatus?.last_sync_at
+    ? new Date(syncStatus.last_sync_at).toLocaleString('pt-BR')
+    : 'Nunca sincronizado'
+
+  const profileName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Usuário'
+    : null
+
+  return (
+    <div className="pb-6">
+      <div className="px-5 pt-14 pb-4 safe-top">
+        <h1 className="text-2xl font-bold">Configurações</h1>
+      </div>
+
+      <div className="px-4 flex flex-col gap-4">
+        {/* Perfil */}
+        <Section title="Conta">
+          <div className="flex items-center gap-4 py-1">
+            <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-xl font-bold text-whoop-green">
+              {(user?.email?.[0] ?? 'U').toUpperCase()}
+            </div>
+            <div>
+              <p className="font-semibold">{user?.email}</p>
+              {profileName && <p className="text-sm text-gray-400">{profileName}</p>}
+            </div>
+          </div>
+        </Section>
+
+        {/* WHOOP */}
+        <Section title="WHOOP">
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="text-sm font-medium">Status</p>
+              <p className={`text-xs mt-0.5 ${whoopConnected ? 'text-whoop-green' : 'text-gray-400'}`}>
+                {whoopConnected ? '● Conectado' : '○ Não conectado'}
+              </p>
+            </div>
+            {whoopConnected ? (
+              <button
+                onClick={handleDisconnect}
+                className="text-xs text-red-400 border border-red-400/20 rounded-lg px-3 py-1.5"
+              >
+                Desconectar
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/conectar-whoop')}
+                className="text-xs text-whoop-green border border-whoop-green/30 rounded-lg px-3 py-1.5 font-medium"
+              >
+                Conectar
+              </button>
+            )}
+          </div>
+
+          {whoopError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400 mb-2">
+              {whoopError}
+            </div>
+          )}
+
+          {whoopConnected && (
+            <>
+              <div className="border-t border-white/5 pt-3">
+                <p className="text-xs text-gray-500 mb-2">Última sincronização: {lastSync}</p>
+                {syncError && (
+                  <p className="text-xs text-red-400 mb-2">{syncError}</p>
+                )}
+                {lastResult && (
+                  <p className="text-xs text-whoop-green mb-2">{lastResult}</p>
+                )}
+                <button
+                  onClick={sync}
+                  disabled={syncing}
+                  className="w-full bg-whoop-green text-black font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+                >
+                  {syncing ? 'Sincronizando...' : '↻ Sincronizar dados'}
+                </button>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Busca dados dos últimos 90 dias
+                </p>
+              </div>
+            </>
+          )}
+        </Section>
+
+        {/* Perfil WHOOP */}
+        {profile && (
+          <Section title="Perfil WHOOP">
+            {[
+              { label: 'Nome', value: profileName },
+              { label: 'Altura', value: profile.height_meter ? `${(profile.height_meter * 100).toFixed(0)} cm` : null },
+              { label: 'Peso', value: profile.weight_kilogram ? `${profile.weight_kilogram} kg` : null },
+              { label: 'FC Máxima', value: profile.max_heart_rate ? `${profile.max_heart_rate} bpm` : null },
+            ].filter(r => r.value).map(row => (
+              <div key={row.label} className="flex justify-between py-2 border-b border-white/5 last:border-0">
+                <span className="text-gray-400 text-sm">{row.label}</span>
+                <span className="text-sm font-medium">{row.value}</span>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* Sair */}
+        <button
+          onClick={signOut}
+          className="w-full border border-red-400/20 text-red-400 py-3 rounded-xl text-sm font-medium"
+        >
+          Sair da conta
+        </button>
+
+        <p className="text-center text-xs text-gray-600 pb-2">
+          WHOOP em Português · v1.0
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-surface rounded-2xl p-4">
+      <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">{title}</p>
+      {children}
+    </div>
+  )
+}
