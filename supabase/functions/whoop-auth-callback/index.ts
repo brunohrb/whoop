@@ -11,27 +11,23 @@ const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/whoop-auth-callback`
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state") // contém o access_token do usuário
+  const userId = url.searchParams.get("state") // state = supabase user_id
   const error = url.searchParams.get("error")
 
   if (error) {
     return Response.redirect(`${APP_URL}/configuracoes?whoop_error=${encodeURIComponent(error)}`)
   }
 
-  if (!code || !state) {
+  if (!code || !userId) {
     return Response.redirect(`${APP_URL}/configuracoes?whoop_error=parametros_invalidos`)
   }
 
-  // Verificar o JWT (state) com Supabase para obter o user_id
+  // Validar que o userId existe no Supabase
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: `Bearer ${state}` } },
-  })
-
-  const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
-  if (userError || !user) {
-    console.error("JWT inválido no state:", userError)
-    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=sessao_invalida`)
+  const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
+  if (userError || !userData?.user) {
+    console.error("User ID inválido:", userId, userError)
+    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=usuario_invalido`)
   }
 
   // Trocar código por tokens WHOOP
@@ -63,28 +59,23 @@ Deno.serve(async (req: Request) => {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
     if (profileRes.ok) whoopProfile = await profileRes.json()
-  } catch (e) {
-    console.error("Erro ao buscar perfil:", e)
-  }
+  } catch (e) { console.error("Erro ao buscar perfil:", e) }
 
-  // Buscar medidas corporais
   let bodyData: Record<string, unknown> | null = null
   try {
     const bodyRes = await fetch("https://api.prod.whoop.com/developer/v1/user/measurement/body", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
     if (bodyRes.ok) bodyData = await bodyRes.json()
-  } catch (e) {
-    console.error("Erro ao buscar medidas:", e)
-  }
+  } catch (e) { console.error("Erro ao buscar medidas:", e) }
 
-  // Salvar tokens usando service_role (bypassa RLS)
+  // Salvar tokens (service_role bypassa RLS)
   const { error: tokenSaveErr } = await supabase
     .schema("whoop")
     .from("user_tokens")
     .upsert(
       {
-        user_id: user.id,
+        user_id: userId,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token ?? null,
         token_type: tokens.token_type ?? "Bearer",
@@ -100,14 +91,13 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${APP_URL}/configuracoes?whoop_error=erro_salvar_tokens`)
   }
 
-  // Salvar perfil
   if (whoopProfile) {
     await supabase
       .schema("whoop")
       .from("profiles")
       .upsert(
         {
-          user_id: user.id,
+          user_id: userId,
           whoop_user_id: whoopProfile.user_id ?? null,
           email: whoopProfile.email ?? null,
           first_name: whoopProfile.first_name ?? null,
