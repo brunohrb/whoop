@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 
 export default function Settings() {
   const { user, signOut } = useAuth()
-  const { profile, syncStatus, whoopConnected, refresh } = useWhoopData()
+  const { profile, syncStatus, whoopConnected, recentSleeps, refresh } = useWhoopData()
   const { sync, syncing, error: syncError, lastResult } = useSync(refresh)
   const navigate = useNavigate()
   const [whoopError, setWhoopError] = useState<string | null>(null)
@@ -88,6 +88,15 @@ export default function Settings() {
           {whoopError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400 mb-2">
               {whoopError}
+            </div>
+          )}
+
+          {whoopConnected && recentSleeps.length === 0 && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-sm text-yellow-300 mb-3">
+              <p className="font-medium mb-1">⚠️ Dados incompletos</p>
+              <p className="text-xs text-yellow-400/80 leading-relaxed">
+                Seu token não inclui sono e recuperação. Desconecte e reconecte o WHOOP para obter todos os dados.
+              </p>
             </div>
           )}
 

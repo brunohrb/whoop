@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
 
 const tabs = [
-  { to: '/', label: 'Recuperação', icon: HeartIcon },
+  { to: '/', label: 'Início', icon: HomeIcon },
+  { to: '/recuperacao', label: 'Recuperação', icon: HeartIcon },
   { to: '/sono', label: 'Sono', icon: MoonIcon },
   { to: '/esforco', label: 'Esforço', icon: BoltIcon },
   { to: '/configuracoes', label: 'Ajustes', icon: GearIcon },
@@ -17,17 +18,25 @@ export default function BottomNav() {
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-3 px-4 flex-1 transition-colors ${
+              `flex flex-col items-center gap-1 py-3 px-2 flex-1 transition-colors ${
                 isActive ? 'text-whoop-green' : 'text-gray-500'
               }`
             }
           >
-            <Icon className="w-6 h-6" />
-            <span className="text-[10px] font-medium">{label}</span>
+            <Icon className="w-5 h-5" />
+            <span className="text-[9px] font-medium">{label}</span>
           </NavLink>
         ))}
       </div>
     </nav>
+  )
+}
+
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+    </svg>
   )
 }
 
