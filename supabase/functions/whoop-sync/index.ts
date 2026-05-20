@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Sincronizar sono ───────────────────────────────────────────────────
     const sleepResult = await paginateAndSync<Record<string, unknown>>(
-      `${WHOOP_BASE}/activity/sleep?start=${startIso}&limit=25`,
+      `${WHOOP_BASE}/sleep?start=${startIso}&limit=25`,
       headers,
       async (records) => {
         apiSleepCount += records.length
@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Sincronizar treinos ────────────────────────────────────────────────
     const workoutResult = await paginateAndSync<Record<string, unknown>>(
-      `${WHOOP_BASE}/activity/workout?start=${startIso}&limit=25`,
+      `${WHOOP_BASE}/workout?start=${startIso}&limit=25`,
       headers,
       async (records) => {
         apiWorkoutCount += records.length
