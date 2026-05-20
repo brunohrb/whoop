@@ -5,7 +5,8 @@ import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
 import HRZonesBar from '../components/HRZonesBar'
-import { strainColor, sportName, workoutDuration, kcalFromKj, formatTime } from '../utils/whoop'
+import { strainColor, sportName, workoutDuration, kcalFromKj, formatTime, formatShortDate } from '../utils/whoop'
+import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
 
 const STRAIN_ZONES = [
   { label: 'Leve', range: '0–9', color: '#4FC3F7' },
@@ -15,7 +16,7 @@ const STRAIN_ZONES = [
 ]
 
 export default function Strain() {
-  const { latestCycle, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
+  const { latestCycle, recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
 
   if (loading) return <LoadingScreen />
@@ -32,6 +33,15 @@ export default function Strain() {
   })
 
   const otherWorkouts = recentWorkouts.filter(w => !todayWorkouts.includes(w)).slice(0, 5)
+
+  const chartData = recentCycles
+    .slice(0, 14)
+    .reverse()
+    .map(c => ({
+      date: formatShortDate(c.start_time),
+      esforco: c.strain ? Math.round(c.strain * 10) / 10 : 0,
+      color: strainColor(c.strain),
+    }))
 
   return (
     <div className="pb-8">
@@ -53,42 +63,68 @@ export default function Strain() {
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Hero: círculo + métricas lado a lado */}
-          <div className="px-4 pt-2 pb-4">
-            <div className="bg-surface rounded-3xl p-5">
-              <div className="flex items-center gap-4">
-                <CircleProgress
-                  value={strain}
-                  max={21}
-                  size={140}
-                  strokeWidth={13}
-                  color={color}
-                  unit="/ 21"
-                  label="esforço"
-                />
-                <div className="flex-1 flex flex-col gap-3">
-                  <Metric label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
-                  <Metric label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
-                  <Metric label="FC Máxima" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
+          {/* Hero */}
+          <div className="mx-4 mt-2 bg-surface rounded-3xl p-5">
+            <div className="flex flex-col items-center">
+              <CircleProgress
+                value={strain}
+                max={21}
+                size={180}
+                strokeWidth={14}
+                color={color}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-5xl font-bold tabular-nums" style={{ color }}>
+                    {strain != null ? strain.toFixed(1) : '--'}
+                  </span>
+                  <span className="text-gray-400 text-sm mt-1">/ 21</span>
+                  <span className="text-gray-500 text-xs mt-0.5">esforço</span>
                 </div>
-              </div>
+              </CircleProgress>
 
-              {/* Legenda de zonas */}
-              <div className="flex justify-between mt-5 pt-4 border-t border-white/5">
-                {STRAIN_ZONES.map(z => (
-                  <div key={z.label} className="flex flex-col items-center gap-1">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color }} />
-                    <span className="text-[10px] text-gray-400 font-medium">{z.label}</span>
-                    <span className="text-[9px] text-gray-600">{z.range}</span>
-                  </div>
-                ))}
+              <div className="flex w-full justify-around mt-5 pt-4 border-t border-white/5">
+                <StatItem label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
+                <div className="w-px bg-white/5" />
+                <StatItem label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
+                <div className="w-px bg-white/5" />
+                <StatItem label="FC Máx" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
               </div>
+            </div>
+
+            {/* Legenda de zonas */}
+            <div className="flex justify-between mt-4 pt-3 border-t border-white/5">
+              {STRAIN_ZONES.map(z => (
+                <div key={z.label} className="flex flex-col items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color }} />
+                  <span className="text-[10px] text-gray-400 font-medium">{z.label}</span>
+                  <span className="text-[9px] text-gray-600">{z.range}</span>
+                </div>
+              ))}
             </div>
           </div>
 
+          {/* Histórico 14 dias */}
+          {chartData.length > 1 && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">
+                Últimos 14 dias
+              </p>
+              <ResponsiveContainer width="100%" height={80}>
+                <BarChart data={chartData} barCategoryGap={4}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Bar dataKey="esforco" radius={[3, 3, 0, 0]}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           {/* Treinos de hoje */}
           {todayWorkouts.length > 0 && (
-            <div className="px-4 mb-4">
+            <div className="px-4 mt-3">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
                 Treinos de hoje
               </p>
@@ -100,7 +136,7 @@ export default function Strain() {
 
           {/* Treinos recentes */}
           {otherWorkouts.length > 0 && (
-            <div className="px-4">
+            <div className="px-4 mt-3">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
                 Treinos recentes
               </p>
@@ -111,7 +147,7 @@ export default function Strain() {
           )}
 
           {todayWorkouts.length === 0 && otherWorkouts.length === 0 && (
-            <div className="mx-4 bg-surface rounded-2xl p-4 text-center">
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4 text-center">
               <p className="text-gray-500 text-sm">Nenhum treino registrado</p>
               <p className="text-gray-600 text-xs mt-1">Registre atividades no app WHOOP</p>
             </div>
@@ -122,13 +158,12 @@ export default function Strain() {
   )
 }
 
-function Metric({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
+function StatItem({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
   return (
-    <div>
-      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-      <p className="text-lg font-bold leading-none" style={{ color }}>
-        {value} <span className="text-xs font-normal text-gray-400">{unit}</span>
-      </p>
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-base font-bold" style={{ color }}>{value}</span>
+      <span className="text-[10px] text-gray-400">{unit}</span>
     </div>
   )
 }
