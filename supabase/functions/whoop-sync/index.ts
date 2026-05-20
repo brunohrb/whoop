@@ -233,6 +233,11 @@ Deno.serve(async (req: Request) => {
           sleep: sleepResult.httpError,
           workout: workoutResult.httpError,
         },
+        debug: {
+          sleep_raw: sleepResult.rawFirst,
+          recovery_raw: recoveryResult.rawFirst,
+          workout_raw: workoutResult.rawFirst,
+        },
       }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     )
@@ -253,10 +258,11 @@ async function paginateAndSync<T>(
   url: string,
   headers: Record<string, string>,
   handler: (records: T[]) => Promise<void>
-): Promise<{ count: number; httpError: string | null }> {
+): Promise<{ count: number; httpError: string | null; rawFirst?: string }> {
   let nextToken: string | null = null
   let page = 0
   let totalCount = 0
+  let rawFirst: string | undefined
 
   do {
     const pageUrl = nextToken ? `${url}&nextToken=${encodeURIComponent(nextToken)}` : url
@@ -274,20 +280,31 @@ async function paginateAndSync<T>(
       return { count: totalCount, httpError: msg }
     }
 
-    const json = await res.json()
-    const records: T[] = json.records ?? []
-    console.log(`[whoop-sync] ${pageUrl} → ${records.length} registros, next_token=${json.next_token ?? 'null'}`)
+    const rawBody = await res.text()
+    let json: Record<string, unknown>
+    try {
+      json = JSON.parse(rawBody)
+    } catch {
+      return { count: totalCount, httpError: `JSON parse error: ${rawBody.slice(0, 200)}` }
+    }
+
+    const records: T[] = (json.records as T[]) ?? []
+    console.log(`[whoop-sync] ${pageUrl} → ${records.length} registros, keys=${Object.keys(json).join(',')}, next_token=${json.next_token ?? 'null'}`)
+
+    if (page === 0 && records.length === 0) {
+      rawFirst = rawBody.slice(0, 800)
+    }
 
     if (records.length > 0) {
       await handler(records)
       totalCount += records.length
     }
 
-    nextToken = json.next_token ?? null
+    nextToken = (json.next_token as string) ?? null
     page++
 
     if (page % 10 === 0) await new Promise(r => setTimeout(r, 700))
   } while (nextToken && page < 50)
 
-  return { count: totalCount, httpError: null }
+  return { count: totalCount, httpError: null, rawFirst }
 }

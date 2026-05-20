@@ -23,11 +23,14 @@ export function useSync(onComplete?: () => void) {
       const apiRecoveries = data?.api_recovery_count ?? 0
       const errors = data?.errors ?? {}
 
+      const debug = data?.debug ?? {}
       const httpErrors = [errors.sleep, errors.recovery, errors.workout].filter(Boolean)
       if (httpErrors.length > 0) {
         setError(`Erro da API WHOOP: ${httpErrors[0]}`)
       } else if (cycles > 0 && apiSleeps === 0 && apiRecoveries === 0 && apiWorkouts === 0) {
-        setError('⚠️ WHOOP retornou 0 registros de sono/recuperação/treino. O dispositivo pode não ter sincronizado com o app WHOOP ainda.')
+        const rawInfo = debug.sleep_raw ?? debug.recovery_raw ?? debug.workout_raw
+        const rawSnippet = rawInfo ? ` | API raw: ${String(rawInfo).slice(0, 120)}` : ''
+        setError(`⚠️ WHOOP retornou 0 registros de sono/recuperação/treino.${rawSnippet}`)
       } else {
         setLastResult(`✓ ${cycles} ciclos · ${sleeps} sonos · ${recoveries} recuperações · ${workouts} treinos`)
       }
