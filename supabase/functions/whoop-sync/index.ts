@@ -95,6 +95,8 @@ Deno.serve(async (req: Request) => {
   let syncedWorkouts = 0
   let syncedRecoveries = 0
   let apiRecoveryCount = 0
+  let apiSleepCount = 0
+  let apiWorkoutCount = 0
 
   try {
     // ── Sincronizar ciclos ─────────────────────────────────────────────────
@@ -169,8 +171,10 @@ Deno.serve(async (req: Request) => {
           sleep_consistency_percentage: s.score?.sleep_consistency_percentage ?? null,
           sleep_efficiency_percentage: s.score?.sleep_efficiency_percentage ?? null,
         }))
-        await supabase.schema("whoop").from("sleep").upsert(rows, { onConflict: "whoop_sleep_id", ignoreDuplicates: false })
-        syncedSleeps += rows.length
+        apiSleepCount += records.length
+        const { error: sleepErr } = await supabase.schema("whoop").from("sleep").upsert(rows, { onConflict: "whoop_sleep_id", ignoreDuplicates: false })
+        if (sleepErr) console.error("Erro upsert sleep:", JSON.stringify(sleepErr))
+        else syncedSleeps += rows.length
       }
     )
 
@@ -200,8 +204,10 @@ Deno.serve(async (req: Request) => {
           zone_four_milli: w.score?.zone_duration?.zone_four_milli ?? null,
           zone_five_milli: w.score?.zone_duration?.zone_five_milli ?? null,
         }))
-        await supabase.schema("whoop").from("workouts").upsert(rows, { onConflict: "whoop_workout_id", ignoreDuplicates: false })
-        syncedWorkouts += rows.length
+        apiWorkoutCount += records.length
+        const { error: workoutErr } = await supabase.schema("whoop").from("workouts").upsert(rows, { onConflict: "whoop_workout_id", ignoreDuplicates: false })
+        if (workoutErr) console.error("Erro upsert workout:", JSON.stringify(workoutErr))
+        else syncedWorkouts += rows.length
       }
     )
 
@@ -217,7 +223,7 @@ Deno.serve(async (req: Request) => {
     )
 
     return new Response(
-      JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_recoveries: syncedRecoveries, api_recovery_count: apiRecoveryCount, synced_sleeps: syncedSleeps, synced_workouts: syncedWorkouts }),
+      JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_recoveries: syncedRecoveries, api_recovery_count: apiRecoveryCount, synced_sleeps: syncedSleeps, api_sleep_count: apiSleepCount, synced_workouts: syncedWorkouts, api_workout_count: apiWorkoutCount }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     )
   } catch (err) {

@@ -18,8 +18,12 @@ export function useSync(onComplete?: () => void) {
       const workouts = data?.synced_workouts ?? 0
       const recoveries = data?.synced_recoveries ?? 0
 
-      if (cycles > 0 && sleeps === 0 && recoveries === 0 && workouts === 0) {
-        setError('⚠️ Permissões insuficientes: sono, recuperação e treinos não foram sincronizados. Vá em developer.whoop.com, habilite Sleep/Recovery/Workout no seu app, desconecte e reconecte o WHOOP.')
+      const apiSleeps = data?.api_sleep_count ?? 0
+      const apiWorkouts = data?.api_workout_count ?? 0
+      const apiRecoveries = data?.api_recovery_count ?? 0
+
+      if (cycles > 0 && apiSleeps === 0 && apiRecoveries === 0 && apiWorkouts === 0) {
+        setError('⚠️ WHOOP retornou 0 registros de sono/recuperação/treino. Desconecte e reconecte o WHOOP para atualizar permissões.')
       } else {
         setLastResult(`✓ ${cycles} ciclos · ${sleeps} sonos · ${recoveries} recuperações · ${workouts} treinos`)
       }
