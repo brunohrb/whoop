@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const WHOOP_CLIENT_ID = Deno.env.get("WHOOP_CLIENT_ID")!
 const WHOOP_CLIENT_SECRET = Deno.env.get("WHOOP_CLIENT_SECRET")!
-const WHOOP_BASE = "https://api.prod.whoop.com/developer/v1"
+const WHOOP_BASE = "https://api.prod.whoop.com/developer/v2"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Sincronizar sono ───────────────────────────────────────────────────
     const sleepResult = await paginateAndSync<Record<string, unknown>>(
-      `${WHOOP_BASE}/sleep?start=${startIso}&limit=25`,
+      `${WHOOP_BASE}/activity/sleep?start=${startIso}&limit=25`,
       headers,
       async (records) => {
         apiSleepCount += records.length
@@ -180,7 +180,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Sincronizar treinos ────────────────────────────────────────────────
     const workoutResult = await paginateAndSync<Record<string, unknown>>(
-      `${WHOOP_BASE}/workout?start=${startIso}&limit=25`,
+      `${WHOOP_BASE}/activity/workout?start=${startIso}&limit=25`,
       headers,
       async (records) => {
         apiWorkoutCount += records.length
