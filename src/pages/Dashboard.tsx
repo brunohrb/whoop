@@ -71,16 +71,36 @@ export default function Dashboard() {
       ) : (
         <>
           {/* 3 metric circles */}
-          <div className="mx-4 mt-3 bg-surface rounded-3xl p-4">
-            <div className="flex justify-around items-center">
+          <div className="mx-4 mt-3 bg-surface rounded-3xl px-2 py-5">
+            <div className="flex justify-around items-end">
               <button onClick={() => navigate('/recuperacao')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={recoveryScore} size={100} strokeWidth={9} color={recovColor} unit="%" label="recuperação" />
+                <CircleProgress value={recoveryScore} size={108} strokeWidth={8} color={recovColor}>
+                  <span className="text-3xl font-bold tabular-nums leading-none" style={{ color: recovColor }}>
+                    {recoveryScore != null ? Math.round(recoveryScore) : '--'}
+                  </span>
+                  <span className="text-[11px] text-gray-400 mt-0.5">%</span>
+                </CircleProgress>
+                <span className="text-[11px] text-gray-500 tracking-wide">recuperação</span>
               </button>
+
               <button onClick={() => navigate('/sono')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={sleepScore} size={100} strokeWidth={9} color={sleepColor} unit="%" label="sono" />
+                <CircleProgress value={sleepScore} size={108} strokeWidth={8} color={sleepColor}>
+                  <span className="text-3xl font-bold tabular-nums leading-none" style={{ color: sleepColor }}>
+                    {sleepScore != null ? Math.round(sleepScore) : '--'}
+                  </span>
+                  <span className="text-[11px] text-gray-400 mt-0.5">%</span>
+                </CircleProgress>
+                <span className="text-[11px] text-gray-500 tracking-wide">sono</span>
               </button>
+
               <button onClick={() => navigate('/esforco')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={strain} max={21} size={100} strokeWidth={9} color={strColor} unit="/21" label="esforço" />
+                <CircleProgress value={strain} max={21} size={108} strokeWidth={8} color={strColor}>
+                  <span className="text-3xl font-bold tabular-nums leading-none" style={{ color: strColor }}>
+                    {strain != null ? strain.toFixed(1) : '--'}
+                  </span>
+                  <span className="text-[11px] text-gray-400 mt-0.5">/21</span>
+                </CircleProgress>
+                <span className="text-[11px] text-gray-500 tracking-wide">esforço</span>
               </button>
             </div>
           </div>
