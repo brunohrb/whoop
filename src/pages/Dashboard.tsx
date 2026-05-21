@@ -1,7 +1,6 @@
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import { useNavigate } from 'react-router-dom'
-import CircleProgress from '../components/CircleProgress'
 import LoadingScreen from '../components/LoadingScreen'
 import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj } from '../utils/whoop'
 
