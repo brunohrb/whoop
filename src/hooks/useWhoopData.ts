@@ -10,6 +10,7 @@ interface WhoopData {
   recentCycles: WhoopCycle[]
   recentRecoveries: WhoopRecovery[]
   recentSleeps: WhoopSleep[]
+  recentNaps: WhoopSleep[]
   profile: WhoopProfile | null
   syncStatus: SyncStatus | null
   whoopConnected: boolean
@@ -27,6 +28,7 @@ export function useWhoopData(): WhoopData {
     recentCycles: [],
     recentRecoveries: [],
     recentSleeps: [],
+    recentNaps: [],
     profile: null,
     syncStatus: null,
     whoopConnected: false,
@@ -49,12 +51,14 @@ export function useWhoopData(): WhoopData {
         supabase.schema('whoop').from('profiles').select('*').single(),
         supabase.schema('whoop').from('cycles').select('*').order('start_time', { ascending: false }).limit(30),
         supabase.schema('whoop').from('workouts').select('*').order('start_time', { ascending: false }).limit(20),
-        supabase.schema('whoop').from('sleep').select('*').eq('nap', false).order('start_time', { ascending: false }).limit(30),
+        supabase.schema('whoop').from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
         supabase.schema('whoop').from('sync_status').select('*').single(),
       ])
 
       const cycles = cyclesData ?? []
-      const sleeps = sleepsData ?? []
+      const allSleeps = sleepsData ?? []
+      const sleeps = allSleeps.filter(s => !s.nap)
+      const naps = allSleeps.filter(s => s.nap)
 
       const latestCycle = cycles[0] ?? null
       const latestSleep = sleeps[0] ?? null
@@ -84,6 +88,7 @@ export function useWhoopData(): WhoopData {
         recentCycles: cycles,
         recentRecoveries,
         recentSleeps: sleeps,
+        recentNaps: naps,
         profile: profileData,
         syncStatus: syncData,
         whoopConnected: !!tokenData?.whoop_user_id,

@@ -127,7 +127,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <MiniStat label="Total" value={millisToTime(totalSleep)} unit="" color="#9C59D1" />
                 <MiniStat label="Eficiência" value={latestSleep.sleep_efficiency_percentage ? `${latestSleep.sleep_efficiency_percentage.toFixed(0)}` : '--'} unit="%" color="#4FC3F7" />
-                <MiniStat label="Distúrbios" value={`${latestSleep.disturbance_count ?? '--'}`} unit="vezes" color={(latestSleep.disturbance_count ?? 0) > 5 ? '#FF4444' : '#00D4A0'} />
+                <MiniStat label="Freq. resp." value={latestSleep.respiratory_rate ? `${latestSleep.respiratory_rate.toFixed(1)}` : '--'} unit="rpm" color="#00D4A0" />
                 <MiniStat label="Consistência" value={latestSleep.sleep_consistency_percentage ? `${latestSleep.sleep_consistency_percentage.toFixed(0)}` : '--'} unit="%" color="#F5C518" />
               </div>
             </div>

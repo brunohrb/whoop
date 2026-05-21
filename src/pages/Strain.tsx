@@ -158,6 +158,7 @@ function StatItem({ label, value, unit, color }: { label: string; value: string;
 
 function WorkoutCard({ workout }: { workout: ReturnType<typeof useWhoopData>['recentWorkouts'][0] }) {
   const color = strainColor(workout.strain)
+  const pctRec = workout.percent_recorded
   return (
     <div className="bg-surface rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
@@ -165,6 +166,9 @@ function WorkoutCard({ workout }: { workout: ReturnType<typeof useWhoopData>['re
           <p className="font-semibold">{sportName(workout.sport_id)}</p>
           <p className="text-xs text-gray-400">
             {formatTime(workout.start_time)} · {workoutDuration(workout.start_time, workout.end_time)}
+            {pctRec != null && pctRec < 100 && (
+              <span className="ml-1 text-yellow-400/80">· {pctRec.toFixed(0)}% gravado</span>
+            )}
           </p>
         </div>
         <div className="text-right">

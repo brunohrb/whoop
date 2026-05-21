@@ -9,13 +9,21 @@ import { millisToTime, millisToHours, formatTime, formatShortDate } from '../uti
 import { BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts'
 
 export default function Sleep() {
-  const { latestSleep, recentSleeps, whoopConnected, loading, refresh } = useWhoopData()
+  const { latestSleep, recentSleeps, recentNaps, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
 
   if (loading) return <LoadingScreen />
 
   const perfScore = latestSleep?.sleep_performance_percentage ?? null
   const totalSleep = (latestSleep?.total_in_bed_time_milli ?? 0) - (latestSleep?.total_awake_time_milli ?? 0)
+
+  // Cálculo da necessidade total de sono (baseline + strain + debt - nap)
+  const sleepNeeded = latestSleep
+    ? (latestSleep.sleep_needed_baseline_milli ?? 0)
+      + (latestSleep.sleep_needed_from_recent_strain_milli ?? 0)
+      + (latestSleep.sleep_needed_from_sleep_debt_milli ?? 0)
+      + (latestSleep.sleep_needed_from_recent_nap_milli ?? 0)
+    : 0
 
   const chartData = recentSleeps
     .slice(0, 14)
@@ -26,6 +34,8 @@ export default function Sleep() {
         (s.total_in_bed_time_milli ?? 0) - (s.total_awake_time_milli ?? 0)
       ) * 10) / 10,
     }))
+
+  const last7Naps = recentNaps.slice(0, 7)
 
   return (
     <div className="pb-6">
@@ -71,8 +81,8 @@ export default function Sleep() {
             </div>
           </div>
 
-          {/* Métricas */}
-          <div className="px-4 grid grid-cols-2 gap-3">
+          {/* Métricas principais */}
+          <div className="px-4 grid grid-cols-2 gap-3 mt-3">
             <MetricCard
               label="Eficiência"
               value={latestSleep.sleep_efficiency_percentage?.toFixed(0)}
@@ -86,6 +96,18 @@ export default function Sleep() {
               color="#4FC3F7"
             />
             <MetricCard
+              label="Frequência respiratória"
+              value={latestSleep.respiratory_rate?.toFixed(1) ?? '--'}
+              unit="rpm"
+              color="#00D4A0"
+            />
+            <MetricCard
+              label="Ciclos de sono"
+              value={latestSleep.sleep_cycle_count ?? '--'}
+              sub="ciclos REM"
+              color="#F5C518"
+            />
+            <MetricCard
               label="Na cama"
               value={millisToTime(latestSleep.total_in_bed_time_milli)}
               color="#fff"
@@ -94,33 +116,47 @@ export default function Sleep() {
               label="Distúrbios"
               value={latestSleep.disturbance_count ?? '--'}
               sub="vezes acordado"
-              color={
-                (latestSleep.disturbance_count ?? 0) > 5 ? '#FF4444' : '#00D4A0'
-              }
+              color={(latestSleep.disturbance_count ?? 0) > 5 ? '#FF4444' : '#00D4A0'}
             />
           </div>
 
-          {/* Necessidade de sono */}
-          {latestSleep.sleep_needed_baseline_milli && (
+          {/* Necessidade de sono detalhada */}
+          {sleepNeeded > 0 && (
             <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
-              <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Necessidade de sono</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">Necessidade de sono</p>
+                <span className="text-xs font-semibold" style={{ color: totalSleep >= sleepNeeded ? '#00D4A0' : '#F5C518' }}>
+                  {Math.round((totalSleep / sleepNeeded) * 100)}%
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 mb-3">
                 <div className="flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
-                      width: `${Math.min((totalSleep / latestSleep.sleep_needed_baseline_milli) * 100, 100)}%`,
+                      width: `${Math.min((totalSleep / sleepNeeded) * 100, 100)}%`,
                       backgroundColor: '#9C59D1',
                     }}
                   />
                 </div>
                 <span className="text-sm font-semibold text-purple-400">
-                  {millisToTime(latestSleep.sleep_needed_baseline_milli)}
+                  {millisToTime(sleepNeeded)}
                 </span>
               </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Dormido: {millisToTime(totalSleep)}</span>
-                <span>Meta: {millisToTime(latestSleep.sleep_needed_baseline_milli)}</span>
+
+              <div className="grid grid-cols-2 gap-2 text-xs pt-3 border-t border-white/5">
+                <BreakdownRow label="Base biológica" value={millisToTime(latestSleep.sleep_needed_baseline_milli)} color="#9C59D1" />
+                {!!latestSleep.sleep_needed_from_recent_strain_milli && (
+                  <BreakdownRow label="+ esforço recente" value={millisToTime(latestSleep.sleep_needed_from_recent_strain_milli)} color="#FF8C00" />
+                )}
+                {!!latestSleep.sleep_needed_from_sleep_debt_milli && (
+                  <BreakdownRow label="+ dívida acumulada" value={millisToTime(latestSleep.sleep_needed_from_sleep_debt_milli)} color="#FF4444" />
+                )}
+                {!!latestSleep.sleep_needed_from_recent_nap_milli && (
+                  <BreakdownRow label="− soneca recente" value={millisToTime(Math.abs(latestSleep.sleep_needed_from_recent_nap_milli))} color="#00D4A0" />
+                )}
+                <BreakdownRow label="Dormido" value={millisToTime(totalSleep)} color="#fff" />
               </div>
             </div>
           )}
@@ -130,6 +166,27 @@ export default function Sleep() {
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">Estágios</p>
             <SleepStagesBar sleep={latestSleep} />
           </div>
+
+          {/* Sonecas */}
+          {last7Naps.length > 0 && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">Sonecas (últimas)</p>
+              <div className="flex flex-col gap-2">
+                {last7Naps.map(nap => {
+                  const napTotal = (nap.total_in_bed_time_milli ?? 0) - (nap.total_awake_time_milli ?? 0)
+                  return (
+                    <div key={nap.id} className="flex items-center justify-between text-sm bg-surface-2 rounded-xl px-3 py-2">
+                      <div>
+                        <p className="text-white font-medium">{formatShortDate(nap.start_time)}</p>
+                        <p className="text-xs text-gray-500">{formatTime(nap.start_time)} – {formatTime(nap.end_time)}</p>
+                      </div>
+                      <span className="font-bold text-purple-400">{millisToTime(napTotal)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Histórico */}
           {chartData.length > 1 && (
@@ -147,6 +204,15 @@ export default function Sleep() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function BreakdownRow({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-gray-400">{label}</span>
+      <span className="font-semibold tabular-nums" style={{ color }}>{value}</span>
     </div>
   )
 }

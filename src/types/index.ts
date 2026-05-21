@@ -51,8 +51,14 @@ export interface WhoopSleep {
   total_light_sleep_time_milli: number | null
   total_slow_wave_sleep_time_milli: number | null
   total_rem_sleep_time_milli: number | null
+  total_no_data_time_milli: number | null
+  sleep_cycle_count: number | null
   disturbance_count: number | null
   sleep_needed_baseline_milli: number | null
+  sleep_needed_from_sleep_debt_milli: number | null
+  sleep_needed_from_recent_strain_milli: number | null
+  sleep_needed_from_recent_nap_milli: number | null
+  respiratory_rate: number | null
   sleep_performance_percentage: number | null
   sleep_consistency_percentage: number | null
   sleep_efficiency_percentage: number | null
