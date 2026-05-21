@@ -1,6 +1,5 @@
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
-import CircleProgress from '../components/CircleProgress'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
@@ -68,11 +67,16 @@ export default function Recovery() {
       ) : (
         <>
           {/* Score principal */}
-          <div className="flex flex-col items-center py-6">
-            <CircleProgress value={score} size={210} strokeWidth={16} color={color} unit="%" />
-            <p className="text-lg font-semibold mt-3" style={{ color }}>
-              Recuperação {levelLabel}
-            </p>
+          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex flex-col items-center py-6">
+              <span className="text-7xl font-bold tabular-nums" style={{ color }}>
+                {score != null ? Math.round(score) : '--'}
+              </span>
+              <span className="text-sm text-gray-400 mt-1">% recuperação</span>
+              <span className="text-base font-semibold mt-2" style={{ color }}>
+                {levelLabel}
+              </span>
+            </div>
           </div>
 
           {/* Métricas */}

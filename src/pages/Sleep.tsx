@@ -1,6 +1,5 @@
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
-import CircleProgress from '../components/CircleProgress'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
@@ -49,27 +48,25 @@ export default function Sleep() {
       ) : (
         <>
           {/* Score + horários */}
-          <div className="flex items-center justify-around px-6 py-4">
-            <CircleProgress
-              value={perfScore}
-              size={160}
-              strokeWidth={13}
-              color="#9C59D1"
-              unit="%"
-              label="desempenho"
-            />
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-xs text-gray-400">Dormiu</p>
-                <p className="text-lg font-bold">{formatTime(latestSleep.start_time)}</p>
+          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex">
+              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: '#9C59D1' }}>
+                  {perfScore != null ? Math.round(perfScore) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">% desempenho</span>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">Acordou</p>
-                <p className="text-lg font-bold">{formatTime(latestSleep.end_time)}</p>
+              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
+                <span className="text-2xl font-bold tabular-nums text-white">{formatTime(latestSleep.start_time)}</span>
+                <span className="text-[11px] text-gray-500 mt-0.5">dormiu</span>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">Total</p>
-                <p className="text-lg font-bold text-purple-400">{millisToTime(totalSleep)}</p>
+              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
+                <span className="text-2xl font-bold tabular-nums text-white">{formatTime(latestSleep.end_time)}</span>
+                <span className="text-[11px] text-gray-500 mt-0.5">acordou</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1">
+                <span className="text-2xl font-bold tabular-nums" style={{ color: '#9C59D1' }}>{millisToTime(totalSleep)}</span>
+                <span className="text-[11px] text-gray-500 mt-0.5">total</span>
               </div>
             </div>
           </div>

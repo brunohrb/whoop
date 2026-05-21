@@ -1,6 +1,5 @@
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
-import CircleProgress from '../components/CircleProgress'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
@@ -64,35 +63,24 @@ export default function Strain() {
       ) : (
         <>
           {/* Hero */}
-          <div className="mx-4 mt-2 bg-surface rounded-3xl p-5">
-            <div className="flex flex-col items-center">
-              <CircleProgress
-                value={strain}
-                max={21}
-                size={180}
-                strokeWidth={14}
-                color={color}
-              >
-                <div className="flex flex-col items-center">
-                  <span className="text-5xl font-bold tabular-nums" style={{ color }}>
-                    {strain != null ? strain.toFixed(1) : '--'}
-                  </span>
-                  <span className="text-gray-400 text-sm mt-1">/ 21</span>
-                  <span className="text-gray-500 text-xs mt-0.5">esforço</span>
-                </div>
-              </CircleProgress>
+          <div className="mx-4 mt-2 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex flex-col items-center py-6">
+              <span className="text-7xl font-bold tabular-nums" style={{ color }}>
+                {strain != null ? strain.toFixed(1) : '--'}
+              </span>
+              <span className="text-sm text-gray-400 mt-1">/ 21 esforço</span>
+            </div>
 
-              <div className="flex w-full justify-around mt-5 pt-4 border-t border-white/5">
-                <StatItem label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
-                <div className="w-px bg-white/5" />
-                <StatItem label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
-                <div className="w-px bg-white/5" />
-                <StatItem label="FC Máx" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
-              </div>
+            <div className="flex justify-around pb-5 border-t border-white/5 pt-4">
+              <StatItem label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
+              <div className="w-px bg-white/5" />
+              <StatItem label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
+              <div className="w-px bg-white/5" />
+              <StatItem label="FC Máx" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
             </div>
 
             {/* Legenda de zonas */}
-            <div className="flex justify-between mt-4 pt-3 border-t border-white/5">
+            <div className="flex justify-between px-5 pb-4 pt-2 border-t border-white/5">
               {STRAIN_ZONES.map(z => (
                 <div key={z.label} className="flex flex-col items-center gap-1">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color }} />
