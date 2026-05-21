@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
 import { recoveryColor, recoveryLevel, formatShortDate } from '../utils/whoop'
-import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, LineChart, Line, YAxis, Tooltip } from 'recharts'
 
 export default function Recovery() {
   const { recentRecoveries, recentCycles, whoopConnected, loading, refresh } = useWhoopData()
@@ -34,6 +34,18 @@ export default function Recovery() {
         date: formatShortDate(cycle.start_time),
         score: rec?.recovery_score ?? 0,
         color: recoveryColor(rec?.recovery_score),
+      }
+    })
+
+  const hrvData = recentCycles
+    .slice(0, 30)
+    .reverse()
+    .map(cycle => {
+      const rec = recentRecoveries.find(r => r.cycle_id === cycle.whoop_cycle_id)
+      return {
+        date: formatShortDate(cycle.start_time),
+        hrv: rec?.hrv_rmssd_milli ? Math.round(rec.hrv_rmssd_milli) : null,
+        rhr: rec?.resting_heart_rate ? Math.round(rec.resting_heart_rate) : null,
       }
     })
 
@@ -126,11 +138,11 @@ export default function Recovery() {
             />
           </div>
 
-          {/* Histórico 14 dias */}
+          {/* Histórico recuperação 14 dias */}
           {chartData.length > 1 && (
-            <div className="px-4 mt-4 bg-surface mx-4 rounded-2xl p-4">
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">
-                Últimos 14 dias
+                Recuperação · 14 dias
               </p>
               <ResponsiveContainer width="100%" height={80}>
                 <BarChart data={chartData} barCategoryGap={4}>
@@ -141,6 +153,36 @@ export default function Recovery() {
                     ))}
                   </Bar>
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* VFC trend */}
+          {hrvData.some(d => d.hrv != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">VFC · 30 dias (ms)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [`${v} ms`, 'VFC']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="hrv" stroke="#00D4A0" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* RHR trend */}
+          {hrvData.some(d => d.rhr != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">FC de Repouso · 30 dias (bpm)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [`${v} bpm`, 'FC Repouso']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="rhr" stroke="#4FC3F7" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}

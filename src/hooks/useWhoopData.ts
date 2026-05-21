@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus } from '../types'
+import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus, BloodWork } from '../types'
 
 interface WhoopData {
   latestCycle: WhoopCycle | null
@@ -11,6 +11,7 @@ interface WhoopData {
   recentRecoveries: WhoopRecovery[]
   recentSleeps: WhoopSleep[]
   recentNaps: WhoopSleep[]
+  bloodWork: BloodWork[]
   profile: WhoopProfile | null
   syncStatus: SyncStatus | null
   whoopConnected: boolean
@@ -29,6 +30,7 @@ export function useWhoopData(): WhoopData {
     recentRecoveries: [],
     recentSleeps: [],
     recentNaps: [],
+    bloodWork: [],
     profile: null,
     syncStatus: null,
     whoopConnected: false,
@@ -46,6 +48,7 @@ export function useWhoopData(): WhoopData {
         { data: workoutsData },
         { data: sleepsData },
         { data: syncData },
+        { data: bloodWorkData },
       ] = await Promise.all([
         supabase.schema('whoop').from('user_tokens').select('whoop_user_id').single(),
         supabase.schema('whoop').from('profiles').select('*').single(),
@@ -53,6 +56,7 @@ export function useWhoopData(): WhoopData {
         supabase.schema('whoop').from('workouts').select('*').order('start_time', { ascending: false }).limit(20),
         supabase.schema('whoop').from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
         supabase.schema('whoop').from('sync_status').select('*').single(),
+        supabase.schema('whoop').from('blood_work').select('*').order('test_date', { ascending: false }).limit(200),
       ])
 
       const cycles = cyclesData ?? []
@@ -89,6 +93,7 @@ export function useWhoopData(): WhoopData {
         recentRecoveries,
         recentSleeps: sleeps,
         recentNaps: naps,
+        bloodWork: bloodWorkData ?? [],
         profile: profileData,
         syncStatus: syncData,
         whoopConnected: !!tokenData?.whoop_user_id,

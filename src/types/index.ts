@@ -94,3 +94,16 @@ export interface SyncStatus {
 }
 
 export type RecoveryLevel = 'green' | 'yellow' | 'red' | 'unknown'
+
+export interface BloodWork {
+  id: string
+  user_id: string
+  test_date: string
+  marker: string
+  value: number
+  unit: string
+  ref_min: number | null
+  ref_max: number | null
+  notes: string | null
+  created_at: string
+}
