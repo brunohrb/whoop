@@ -70,37 +70,28 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* 3 metric circles */}
-          <div className="mx-4 mt-3 bg-surface rounded-3xl p-5">
-            <div className="flex justify-around items-center">
-              <button onClick={() => navigate('/recuperacao')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={recoveryScore} size={80} strokeWidth={7} color={recovColor}>
-                  <span className="text-xl font-bold tabular-nums leading-none" style={{ color: recovColor }}>
-                    {recoveryScore != null ? Math.round(recoveryScore) : '--'}
-                  </span>
-                  <span className="text-[9px] text-gray-500 mt-0.5">%</span>
-                </CircleProgress>
-                <span className="text-[11px] text-gray-400">recuperação</span>
+          {/* 3 metric summary */}
+          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex">
+              <button onClick={() => navigate('/recuperacao')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: recovColor }}>
+                  {recoveryScore != null ? Math.round(recoveryScore) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">% recuperação</span>
               </button>
 
-              <button onClick={() => navigate('/sono')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={sleepScore} size={80} strokeWidth={7} color={sleepColor}>
-                  <span className="text-xl font-bold tabular-nums leading-none" style={{ color: sleepColor }}>
-                    {sleepScore != null ? Math.round(sleepScore) : '--'}
-                  </span>
-                  <span className="text-[9px] text-gray-500 mt-0.5">%</span>
-                </CircleProgress>
-                <span className="text-[11px] text-gray-400">sono</span>
+              <button onClick={() => navigate('/sono')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: sleepColor }}>
+                  {sleepScore != null ? Math.round(sleepScore) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">% sono</span>
               </button>
 
-              <button onClick={() => navigate('/esforco')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={strain} max={21} size={80} strokeWidth={7} color={strColor}>
-                  <span className="text-xl font-bold tabular-nums leading-none" style={{ color: strColor }}>
-                    {strain != null ? strain.toFixed(1) : '--'}
-                  </span>
-                  <span className="text-[9px] text-gray-500 mt-0.5">/21</span>
-                </CircleProgress>
-                <span className="text-[11px] text-gray-400">esforço</span>
+              <button onClick={() => navigate('/esforco')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: strColor }}>
+                  {strain != null ? strain.toFixed(1) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">/21 esforço</span>
               </button>
             </div>
           </div>
