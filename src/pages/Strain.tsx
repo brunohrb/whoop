@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import PageHeader from '../components/PageHeader'
@@ -15,23 +16,23 @@ const STRAIN_ZONES = [
 ]
 
 export default function Strain() {
-  const { latestCycle, recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
+  const { recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
+  const [dayIndex, setDayIndex] = useState(0)
 
   if (loading) return <LoadingScreen />
 
+  const latestCycle = recentCycles[dayIndex] ?? null
   const strain = latestCycle?.strain ?? null
   const color = strainColor(strain)
 
-  const todayWorkouts = recentWorkouts.filter(w => {
+  const cycleWorkouts = recentWorkouts.filter(w => {
     if (!latestCycle) return false
     const wStart = new Date(w.start_time).getTime()
     const cStart = new Date(latestCycle.start_time).getTime()
     const cEnd = latestCycle.end_time ? new Date(latestCycle.end_time).getTime() : Date.now()
     return wStart >= cStart && wStart <= cEnd
   })
-
-  const otherWorkouts = recentWorkouts.filter(w => !todayWorkouts.includes(w)).slice(0, 5)
 
   const chartData = recentCycles
     .slice(0, 14)
@@ -47,6 +48,10 @@ export default function Strain() {
       <PageHeader
         title="Esforço"
         date={latestCycle?.start_time}
+        onPrev={() => setDayIndex(i => i + 1)}
+        onNext={() => setDayIndex(i => i - 1)}
+        hasPrev={dayIndex < recentCycles.length - 1}
+        hasNext={dayIndex > 0}
         right={
           <button
             onClick={sync}
@@ -110,31 +115,19 @@ export default function Strain() {
             </div>
           )}
 
-          {/* Treinos de hoje */}
-          {todayWorkouts.length > 0 && (
+          {/* Treinos do dia */}
+          {cycleWorkouts.length > 0 && (
             <div className="px-4 mt-3">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
-                Treinos de hoje
+                Treinos do dia
               </p>
               <div className="flex flex-col gap-3">
-                {todayWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
+                {cycleWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
               </div>
             </div>
           )}
 
-          {/* Treinos recentes */}
-          {otherWorkouts.length > 0 && (
-            <div className="px-4 mt-3">
-              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
-                Treinos recentes
-              </p>
-              <div className="flex flex-col gap-3">
-                {otherWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
-              </div>
-            </div>
-          )}
-
-          {todayWorkouts.length === 0 && otherWorkouts.length === 0 && (
+          {cycleWorkouts.length === 0 && (
             <div className="mx-4 mt-3 bg-surface rounded-2xl p-4 text-center">
               <p className="text-gray-500 text-sm">Nenhum treino registrado</p>
               <p className="text-gray-600 text-xs mt-1">Registre atividades no app WHOOP</p>

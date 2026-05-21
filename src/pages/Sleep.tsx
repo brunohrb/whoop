@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import MetricCard from '../components/MetricCard'
@@ -9,15 +10,17 @@ import { millisToTime, millisToHours, formatTime, formatShortDate } from '../uti
 import { BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts'
 
 export default function Sleep() {
-  const { latestSleep, recentSleeps, recentNaps, whoopConnected, loading, refresh } = useWhoopData()
+  const { recentSleeps, recentNaps, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
+  const [dayIndex, setDayIndex] = useState(0)
 
   if (loading) return <LoadingScreen />
+
+  const latestSleep = recentSleeps[dayIndex] ?? null
 
   const perfScore = latestSleep?.sleep_performance_percentage ?? null
   const totalSleep = (latestSleep?.total_in_bed_time_milli ?? 0) - (latestSleep?.total_awake_time_milli ?? 0)
 
-  // Cálculo da necessidade total de sono (baseline + strain + debt - nap)
   const sleepNeeded = latestSleep
     ? (latestSleep.sleep_needed_baseline_milli ?? 0)
       + (latestSleep.sleep_needed_from_recent_strain_milli ?? 0)
@@ -42,6 +45,10 @@ export default function Sleep() {
       <PageHeader
         title="Sono"
         date={latestSleep?.start_time}
+        onPrev={() => setDayIndex(i => i + 1)}
+        onNext={() => setDayIndex(i => i - 1)}
+        hasPrev={dayIndex < recentSleeps.length - 1}
+        hasNext={dayIndex > 0}
         right={
           <button
             onClick={sync}

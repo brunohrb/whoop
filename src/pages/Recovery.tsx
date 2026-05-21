@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import MetricCard from '../components/MetricCard'
@@ -8,12 +9,18 @@ import { recoveryColor, recoveryLevel, formatShortDate } from '../utils/whoop'
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
 
 export default function Recovery() {
-  const { latestRecovery, latestCycle, recentRecoveries, recentCycles, whoopConnected, loading, refresh } = useWhoopData()
+  const { recentRecoveries, recentCycles, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
+  const [dayIndex, setDayIndex] = useState(0)
 
   if (loading) return <LoadingScreen />
 
-  const score = latestRecovery?.recovery_score ?? null
+  const selectedCycle = recentCycles[dayIndex] ?? null
+  const selectedRecovery = selectedCycle
+    ? recentRecoveries.find(r => r.cycle_id === selectedCycle.whoop_cycle_id) ?? null
+    : null
+
+  const score = selectedRecovery?.recovery_score ?? null
   const color = recoveryColor(score)
   const level = recoveryLevel(score)
   const levelLabel = { green: 'Boa', yellow: 'Moderada', red: 'Baixa', unknown: 'Sem dados' }[level]
@@ -30,27 +37,31 @@ export default function Recovery() {
       }
     })
 
-  const hrv = latestRecovery?.hrv_rmssd_milli
-    ? Math.round(latestRecovery.hrv_rmssd_milli)
+  const hrv = selectedRecovery?.hrv_rmssd_milli
+    ? Math.round(selectedRecovery.hrv_rmssd_milli)
     : null
 
-  const rhr = latestRecovery?.resting_heart_rate
-    ? Math.round(latestRecovery.resting_heart_rate)
+  const rhr = selectedRecovery?.resting_heart_rate
+    ? Math.round(selectedRecovery.resting_heart_rate)
     : null
 
-  const spo2 = latestRecovery?.spo2_percentage
-    ? latestRecovery.spo2_percentage.toFixed(1)
+  const spo2 = selectedRecovery?.spo2_percentage
+    ? selectedRecovery.spo2_percentage.toFixed(1)
     : null
 
-  const temp = latestRecovery?.skin_temp_celsius
-    ? latestRecovery.skin_temp_celsius.toFixed(1)
+  const temp = selectedRecovery?.skin_temp_celsius
+    ? selectedRecovery.skin_temp_celsius.toFixed(1)
     : null
 
   return (
     <div className="pb-6">
       <PageHeader
         title="Recuperação"
-        date={latestCycle?.start_time}
+        date={selectedCycle?.start_time}
+        onPrev={() => setDayIndex(i => i + 1)}
+        onNext={() => setDayIndex(i => i - 1)}
+        hasPrev={dayIndex < recentCycles.length - 1}
+        hasNext={dayIndex > 0}
         right={
           <button
             onClick={sync}
@@ -62,7 +73,7 @@ export default function Recovery() {
         }
       />
 
-      {!latestRecovery ? (
+      {!selectedRecovery ? (
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
