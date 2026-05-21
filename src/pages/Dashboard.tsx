@@ -1,7 +1,6 @@
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import { useNavigate } from 'react-router-dom'
-import CircleProgress from '../components/CircleProgress'
 import LoadingScreen from '../components/LoadingScreen'
 import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj } from '../utils/whoop'
 
@@ -70,17 +69,28 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* 3 metric circles */}
-          <div className="mx-4 mt-3 bg-surface rounded-3xl p-4">
-            <div className="flex justify-around items-center">
-              <button onClick={() => navigate('/recuperacao')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={recoveryScore} size={100} strokeWidth={9} color={recovColor} unit="%" label="recuperação" />
+          {/* 3 metric summary */}
+          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex">
+              <button onClick={() => navigate('/recuperacao')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: recovColor }}>
+                  {recoveryScore != null ? Math.round(recoveryScore) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">% recuperação</span>
               </button>
-              <button onClick={() => navigate('/sono')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={sleepScore} size={100} strokeWidth={9} color={sleepColor} unit="%" label="sono" />
+
+              <button onClick={() => navigate('/sono')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: sleepColor }}>
+                  {sleepScore != null ? Math.round(sleepScore) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">% sono</span>
               </button>
-              <button onClick={() => navigate('/esforco')} className="flex flex-col items-center gap-2 active:opacity-70">
-                <CircleProgress value={strain} max={21} size={100} strokeWidth={9} color={strColor} unit="/21" label="esforço" />
+
+              <button onClick={() => navigate('/esforco')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70">
+                <span className="text-4xl font-bold tabular-nums" style={{ color: strColor }}>
+                  {strain != null ? strain.toFixed(1) : '--'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-0.5">/21 esforço</span>
               </button>
             </div>
           </div>
