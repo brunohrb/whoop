@@ -1,20 +1,27 @@
+import { useState } from 'react'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
-import CircleProgress from '../components/CircleProgress'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
+import ArcGauge from '../components/ArcGauge'
 import { recoveryColor, recoveryLevel, formatShortDate } from '../utils/whoop'
-import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, LineChart, Line, YAxis, Tooltip } from 'recharts'
 
 export default function Recovery() {
-  const { latestRecovery, latestCycle, recentRecoveries, recentCycles, whoopConnected, loading, refresh } = useWhoopData()
+  const { recentRecoveries, recentCycles, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
+  const [dayIndex, setDayIndex] = useState(0)
 
   if (loading) return <LoadingScreen />
 
-  const score = latestRecovery?.recovery_score ?? null
+  const selectedCycle = recentCycles[dayIndex] ?? null
+  const selectedRecovery = selectedCycle
+    ? recentRecoveries.find(r => r.cycle_id === selectedCycle.whoop_cycle_id) ?? null
+    : null
+
+  const score = selectedRecovery?.recovery_score ?? null
   const color = recoveryColor(score)
   const level = recoveryLevel(score)
   const levelLabel = { green: 'Boa', yellow: 'Moderada', red: 'Baixa', unknown: 'Sem dados' }[level]
@@ -31,27 +38,43 @@ export default function Recovery() {
       }
     })
 
-  const hrv = latestRecovery?.hrv_rmssd_milli
-    ? Math.round(latestRecovery.hrv_rmssd_milli)
+  const hrvData = recentCycles
+    .slice(0, 30)
+    .reverse()
+    .map(cycle => {
+      const rec = recentRecoveries.find(r => r.cycle_id === cycle.whoop_cycle_id)
+      return {
+        date: formatShortDate(cycle.start_time),
+        hrv: rec?.hrv_rmssd_milli ? Math.round(rec.hrv_rmssd_milli) : null,
+        rhr: rec?.resting_heart_rate ? Math.round(rec.resting_heart_rate) : null,
+      }
+    })
+
+  const hrv = selectedRecovery?.hrv_rmssd_milli
+    ? Math.round(selectedRecovery.hrv_rmssd_milli)
     : null
 
-  const rhr = latestRecovery?.resting_heart_rate
-    ? Math.round(latestRecovery.resting_heart_rate)
+  const rhr = selectedRecovery?.resting_heart_rate
+    ? Math.round(selectedRecovery.resting_heart_rate)
     : null
 
-  const spo2 = latestRecovery?.spo2_percentage
-    ? latestRecovery.spo2_percentage.toFixed(1)
+  const spo2 = selectedRecovery?.spo2_percentage
+    ? selectedRecovery.spo2_percentage.toFixed(1)
     : null
 
-  const temp = latestRecovery?.skin_temp_celsius
-    ? latestRecovery.skin_temp_celsius.toFixed(1)
+  const temp = selectedRecovery?.skin_temp_celsius
+    ? selectedRecovery.skin_temp_celsius.toFixed(1)
     : null
 
   return (
     <div className="pb-6">
       <PageHeader
         title="Recuperação"
-        date={latestCycle?.start_time}
+        date={selectedCycle?.start_time}
+        onPrev={() => setDayIndex(i => i + 1)}
+        onNext={() => setDayIndex(i => i - 1)}
+        hasPrev={dayIndex < recentCycles.length - 1}
+        hasNext={dayIndex > 0}
         right={
           <button
             onClick={sync}
@@ -63,16 +86,24 @@ export default function Recovery() {
         }
       />
 
-      {!latestRecovery ? (
+      {!selectedRecovery ? (
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Score principal */}
-          <div className="flex flex-col items-center py-6">
-            <CircleProgress value={score} size={210} strokeWidth={16} color={color} unit="%" />
-            <p className="text-lg font-semibold mt-3" style={{ color }}>
-              Recuperação {levelLabel}
-            </p>
+          {/* Score principal — anel WHOOP style */}
+          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex flex-col items-center py-6">
+              <div className="relative flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                <ArcGauge value={score} max={100} color={color} size={180} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-bold tabular-nums" style={{ color }}>
+                    {score != null ? Math.round(score) : '--'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">% recuperação</span>
+                  <span className="text-sm font-semibold mt-1" style={{ color }}>{levelLabel}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Métricas */}
@@ -111,11 +142,11 @@ export default function Recovery() {
             />
           </div>
 
-          {/* Histórico 14 dias */}
+          {/* Histórico recuperação 14 dias */}
           {chartData.length > 1 && (
-            <div className="px-4 mt-4 bg-surface mx-4 rounded-2xl p-4">
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">
-                Últimos 14 dias
+                Recuperação · 14 dias
               </p>
               <ResponsiveContainer width="100%" height={80}>
                 <BarChart data={chartData} barCategoryGap={4}>
@@ -126,6 +157,36 @@ export default function Recovery() {
                     ))}
                   </Bar>
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* VFC trend */}
+          {hrvData.some(d => d.hrv != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">VFC · 30 dias (ms)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [`${v} ms`, 'VFC']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="hrv" stroke="#00D4A0" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* RHR trend */}
+          {hrvData.some(d => d.rhr != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">FC de Repouso · 30 dias (bpm)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [`${v} bpm`, 'FC Repouso']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="rhr" stroke="#4FC3F7" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}

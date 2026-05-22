@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const WHOOP_CLIENT_ID = Deno.env.get("WHOOP_CLIENT_ID")!
 const WHOOP_CLIENT_SECRET = Deno.env.get("WHOOP_CLIENT_SECRET")!
-const WHOOP_BASE = "https://api.prod.whoop.com/developer/v1"
+const WHOOP_BASE = "https://api.prod.whoop.com/developer/v2"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -95,14 +95,15 @@ Deno.serve(async (req: Request) => {
   let syncedWorkouts = 0
   let syncedRecoveries = 0
   let apiRecoveryCount = 0
+  let apiSleepCount = 0
+  let apiWorkoutCount = 0
 
   try {
     // ── Sincronizar ciclos ─────────────────────────────────────────────────
-    await paginateAndSync<Record<string, unknown>>(
+    const cycleResult = await paginateAndSync<Record<string, unknown>>(
       `${WHOOP_BASE}/cycle?start=${startIso}&limit=25`,
       headers,
       async (records) => {
-        if (!records.length) return
         const rows = records.map(c => ({
           user_id: user.id,
           whoop_cycle_id: c.id,
@@ -110,10 +111,10 @@ Deno.serve(async (req: Request) => {
           end_time: c.end ?? null,
           timezone: c.timezone_offset ?? null,
           score_state: c.score_state ?? null,
-          strain: c.score?.strain ?? null,
-          kilojoule: c.score?.kilojoule ?? null,
-          average_heart_rate: c.score?.average_heart_rate ?? null,
-          max_heart_rate: c.score?.max_heart_rate ?? null,
+          strain: (c.score as Record<string, unknown>)?.strain ?? null,
+          kilojoule: (c.score as Record<string, unknown>)?.kilojoule ?? null,
+          average_heart_rate: (c.score as Record<string, unknown>)?.average_heart_rate ?? null,
+          max_heart_rate: (c.score as Record<string, unknown>)?.max_heart_rate ?? null,
         }))
         await supabase.schema("whoop").from("cycles").upsert(rows, { onConflict: "whoop_cycle_id", ignoreDuplicates: false })
         syncedCycles += rows.length
@@ -121,22 +122,21 @@ Deno.serve(async (req: Request) => {
     )
 
     // ── Sincronizar recuperação ────────────────────────────────────────────
-    await paginateAndSync<Record<string, unknown>>(
+    const recoveryResult = await paginateAndSync<Record<string, unknown>>(
       `${WHOOP_BASE}/recovery?start=${startIso}&limit=25`,
       headers,
       async (records) => {
-        if (!records.length) return
         apiRecoveryCount += records.length
         const rows = records.map(r => ({
           user_id: user.id,
           cycle_id: r.cycle_id,
           sleep_id: r.sleep_id ?? null,
           score_state: r.score_state ?? null,
-          recovery_score: r.score?.recovery_score ?? null,
-          resting_heart_rate: r.score?.resting_heart_rate ?? null,
-          hrv_rmssd_milli: r.score?.hrv_rmssd_milli ?? null,
-          spo2_percentage: r.score?.spo2_percentage ?? null,
-          skin_temp_celsius: r.score?.skin_temp_celsius ?? null,
+          recovery_score: (r.score as Record<string, unknown>)?.recovery_score ?? null,
+          resting_heart_rate: (r.score as Record<string, unknown>)?.resting_heart_rate ?? null,
+          hrv_rmssd_milli: (r.score as Record<string, unknown>)?.hrv_rmssd_milli ?? null,
+          spo2_percentage: (r.score as Record<string, unknown>)?.spo2_percentage ?? null,
+          skin_temp_celsius: (r.score as Record<string, unknown>)?.skin_temp_celsius ?? null,
         }))
         const { error: recErr } = await supabase.schema("whoop").from("recovery").upsert(rows, { onConflict: "cycle_id", ignoreDuplicates: false })
         if (recErr) console.error("Erro upsert recovery:", JSON.stringify(recErr))
@@ -145,11 +145,14 @@ Deno.serve(async (req: Request) => {
     )
 
     // ── Sincronizar sono ───────────────────────────────────────────────────
-    await paginateAndSync<Record<string, unknown>>(
+    const sleepResult = await paginateAndSync<Record<string, unknown>>(
       `${WHOOP_BASE}/activity/sleep?start=${startIso}&limit=25`,
       headers,
       async (records) => {
-        if (!records.length) return
+        apiSleepCount += records.length
+        const sc = (s: Record<string, unknown>) => s.score as Record<string, unknown> | null
+        const ss = (s: Record<string, unknown>) => (sc(s)?.stage_summary) as Record<string, unknown> | null
+        const sn = (s: Record<string, unknown>) => (sc(s)?.sleep_needed) as Record<string, unknown> | null
         const rows = records.map(s => ({
           user_id: user.id,
           whoop_sleep_id: s.id,
@@ -158,28 +161,37 @@ Deno.serve(async (req: Request) => {
           timezone: s.timezone_offset ?? null,
           nap: s.nap ?? false,
           score_state: s.score_state ?? null,
-          total_in_bed_time_milli: s.score?.stage_summary?.total_in_bed_time_milli ?? null,
-          total_awake_time_milli: s.score?.stage_summary?.total_awake_time_milli ?? null,
-          total_light_sleep_time_milli: s.score?.stage_summary?.total_light_sleep_time_milli ?? null,
-          total_slow_wave_sleep_time_milli: s.score?.stage_summary?.total_slow_wave_sleep_time_milli ?? null,
-          total_rem_sleep_time_milli: s.score?.stage_summary?.total_rem_sleep_time_milli ?? null,
-          disturbance_count: s.score?.stage_summary?.disturbance_count ?? null,
-          sleep_needed_baseline_milli: s.score?.sleep_needed?.baseline_milli ?? null,
-          sleep_performance_percentage: s.score?.sleep_performance_percentage ?? null,
-          sleep_consistency_percentage: s.score?.sleep_consistency_percentage ?? null,
-          sleep_efficiency_percentage: s.score?.sleep_efficiency_percentage ?? null,
+          total_in_bed_time_milli: ss(s)?.total_in_bed_time_milli ?? null,
+          total_awake_time_milli: ss(s)?.total_awake_time_milli ?? null,
+          total_light_sleep_time_milli: ss(s)?.total_light_sleep_time_milli ?? null,
+          total_slow_wave_sleep_time_milli: ss(s)?.total_slow_wave_sleep_time_milli ?? null,
+          total_rem_sleep_time_milli: ss(s)?.total_rem_sleep_time_milli ?? null,
+          total_no_data_time_milli: ss(s)?.total_no_data_time_milli ?? null,
+          sleep_cycle_count: ss(s)?.sleep_cycle_count ?? null,
+          disturbance_count: ss(s)?.disturbance_count ?? null,
+          sleep_needed_baseline_milli: sn(s)?.baseline_milli ?? null,
+          sleep_needed_from_sleep_debt_milli: sn(s)?.need_from_sleep_debt_milli ?? null,
+          sleep_needed_from_recent_strain_milli: sn(s)?.need_from_recent_strain_milli ?? null,
+          sleep_needed_from_recent_nap_milli: sn(s)?.need_from_recent_nap_milli ?? null,
+          respiratory_rate: sc(s)?.respiratory_rate ?? null,
+          sleep_performance_percentage: sc(s)?.sleep_performance_percentage ?? null,
+          sleep_consistency_percentage: sc(s)?.sleep_consistency_percentage ?? null,
+          sleep_efficiency_percentage: sc(s)?.sleep_efficiency_percentage ?? null,
         }))
-        await supabase.schema("whoop").from("sleep").upsert(rows, { onConflict: "whoop_sleep_id", ignoreDuplicates: false })
-        syncedSleeps += rows.length
+        const { error: sleepErr } = await supabase.schema("whoop").from("sleep").upsert(rows, { onConflict: "whoop_sleep_id", ignoreDuplicates: false })
+        if (sleepErr) console.error("Erro upsert sleep:", JSON.stringify(sleepErr))
+        else syncedSleeps += rows.length
       }
     )
 
     // ── Sincronizar treinos ────────────────────────────────────────────────
-    await paginateAndSync<Record<string, unknown>>(
+    const workoutResult = await paginateAndSync<Record<string, unknown>>(
       `${WHOOP_BASE}/activity/workout?start=${startIso}&limit=25`,
       headers,
       async (records) => {
-        if (!records.length) return
+        apiWorkoutCount += records.length
+        const sc = (w: Record<string, unknown>) => w.score as Record<string, unknown> | null
+        const zd = (w: Record<string, unknown>) => (sc(w)?.zone_duration) as Record<string, unknown> | null
         const rows = records.map(w => ({
           user_id: user.id,
           whoop_workout_id: w.id,
@@ -188,36 +200,51 @@ Deno.serve(async (req: Request) => {
           timezone: w.timezone_offset ?? null,
           sport_id: w.sport_id ?? null,
           score_state: w.score_state ?? null,
-          strain: w.score?.strain ?? null,
-          average_heart_rate: w.score?.average_heart_rate ?? null,
-          max_heart_rate: w.score?.max_heart_rate ?? null,
-          kilojoule: w.score?.kilojoule ?? null,
-          percent_recorded: w.score?.percent_recorded ?? null,
-          zone_zero_milli: w.score?.zone_duration?.zone_zero_milli ?? null,
-          zone_one_milli: w.score?.zone_duration?.zone_one_milli ?? null,
-          zone_two_milli: w.score?.zone_duration?.zone_two_milli ?? null,
-          zone_three_milli: w.score?.zone_duration?.zone_three_milli ?? null,
-          zone_four_milli: w.score?.zone_duration?.zone_four_milli ?? null,
-          zone_five_milli: w.score?.zone_duration?.zone_five_milli ?? null,
+          strain: sc(w)?.strain ?? null,
+          average_heart_rate: sc(w)?.average_heart_rate ?? null,
+          max_heart_rate: sc(w)?.max_heart_rate ?? null,
+          kilojoule: sc(w)?.kilojoule ?? null,
+          percent_recorded: sc(w)?.percent_recorded ?? null,
+          zone_zero_milli: zd(w)?.zone_zero_milli ?? null,
+          zone_one_milli: zd(w)?.zone_one_milli ?? null,
+          zone_two_milli: zd(w)?.zone_two_milli ?? null,
+          zone_three_milli: zd(w)?.zone_three_milli ?? null,
+          zone_four_milli: zd(w)?.zone_four_milli ?? null,
+          zone_five_milli: zd(w)?.zone_five_milli ?? null,
         }))
-        await supabase.schema("whoop").from("workouts").upsert(rows, { onConflict: "whoop_workout_id", ignoreDuplicates: false })
-        syncedWorkouts += rows.length
+        const { error: workoutErr } = await supabase.schema("whoop").from("workouts").upsert(rows, { onConflict: "whoop_workout_id", ignoreDuplicates: false })
+        if (workoutErr) console.error("Erro upsert workout:", JSON.stringify(workoutErr))
+        else syncedWorkouts += rows.length
       }
     )
 
-    // Atualizar status de sincronização
     await supabase.schema("whoop").from("sync_status").upsert(
-      {
-        user_id: user.id,
-        last_sync_at: new Date().toISOString(),
-        syncing: false,
-        sync_error: null,
-      },
+      { user_id: user.id, last_sync_at: new Date().toISOString(), syncing: false, sync_error: null },
       { onConflict: "user_id" }
     )
 
     return new Response(
-      JSON.stringify({ success: true, synced_cycles: syncedCycles, synced_recoveries: syncedRecoveries, api_recovery_count: apiRecoveryCount, synced_sleeps: syncedSleeps, synced_workouts: syncedWorkouts }),
+      JSON.stringify({
+        success: true,
+        synced_cycles: syncedCycles,
+        synced_recoveries: syncedRecoveries,
+        synced_sleeps: syncedSleeps,
+        synced_workouts: syncedWorkouts,
+        api_recovery_count: apiRecoveryCount,
+        api_sleep_count: apiSleepCount,
+        api_workout_count: apiWorkoutCount,
+        errors: {
+          cycles: cycleResult.httpError,
+          recovery: recoveryResult.httpError,
+          sleep: sleepResult.httpError,
+          workout: workoutResult.httpError,
+        },
+        debug: {
+          sleep_raw: sleepResult.rawFirst,
+          recovery_raw: recoveryResult.rawFirst,
+          workout_raw: workoutResult.rawFirst,
+        },
+      }),
       { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     )
   } catch (err) {
@@ -237,9 +264,11 @@ async function paginateAndSync<T>(
   url: string,
   headers: Record<string, string>,
   handler: (records: T[]) => Promise<void>
-) {
+): Promise<{ count: number; httpError: string | null; rawFirst?: string }> {
   let nextToken: string | null = null
   let page = 0
+  let totalCount = 0
+  let rawFirst: string | undefined
 
   do {
     const pageUrl = nextToken ? `${url}&nextToken=${encodeURIComponent(nextToken)}` : url
@@ -252,19 +281,36 @@ async function paginateAndSync<T>(
         continue
       }
       const body = await res.text()
-      console.error(`[whoop-sync] Erro ${res.status} em ${pageUrl}: ${body}`)
-      break
+      const msg = `HTTP ${res.status}: ${body.slice(0, 200)}`
+      console.error(`[whoop-sync] Erro em ${pageUrl}: ${msg}`)
+      return { count: totalCount, httpError: msg }
     }
 
-    const json = await res.json()
-    const records: T[] = json.records ?? []
-    console.log(`[whoop-sync] ${pageUrl} → ${records.length} registros, next_token=${json.next_token ?? 'null'}`)
+    const rawBody = await res.text()
+    let json: Record<string, unknown>
+    try {
+      json = JSON.parse(rawBody)
+    } catch {
+      return { count: totalCount, httpError: `JSON parse error: ${rawBody.slice(0, 200)}` }
+    }
 
-    if (records.length > 0) await handler(records)
+    const records: T[] = (json.records as T[]) ?? []
+    console.log(`[whoop-sync] ${pageUrl} → ${records.length} registros, keys=${Object.keys(json).join(',')}, next_token=${json.next_token ?? 'null'}`)
 
-    nextToken = json.next_token ?? null
+    if (page === 0 && records.length === 0) {
+      rawFirst = rawBody.slice(0, 800)
+    }
+
+    if (records.length > 0) {
+      await handler(records)
+      totalCount += records.length
+    }
+
+    nextToken = (json.next_token as string) ?? null
     page++
 
     if (page % 10 === 0) await new Promise(r => setTimeout(r, 700))
   } while (nextToken && page < 50)
+
+  return { count: totalCount, httpError: null, rawFirst }
 }

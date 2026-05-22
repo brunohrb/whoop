@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus } from '../types'
+import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus, BloodWork, JournalEntry } from '../types'
 
 interface WhoopData {
   latestCycle: WhoopCycle | null
@@ -10,6 +10,9 @@ interface WhoopData {
   recentCycles: WhoopCycle[]
   recentRecoveries: WhoopRecovery[]
   recentSleeps: WhoopSleep[]
+  recentNaps: WhoopSleep[]
+  bloodWork: BloodWork[]
+  journal: JournalEntry[]
   profile: WhoopProfile | null
   syncStatus: SyncStatus | null
   whoopConnected: boolean
@@ -27,6 +30,9 @@ export function useWhoopData(): WhoopData {
     recentCycles: [],
     recentRecoveries: [],
     recentSleeps: [],
+    recentNaps: [],
+    bloodWork: [],
+    journal: [],
     profile: null,
     syncStatus: null,
     whoopConnected: false,
@@ -44,17 +50,23 @@ export function useWhoopData(): WhoopData {
         { data: workoutsData },
         { data: sleepsData },
         { data: syncData },
+        { data: bloodWorkData },
+        { data: journalData },
       ] = await Promise.all([
         supabase.schema('whoop').from('user_tokens').select('whoop_user_id').single(),
         supabase.schema('whoop').from('profiles').select('*').single(),
         supabase.schema('whoop').from('cycles').select('*').order('start_time', { ascending: false }).limit(30),
         supabase.schema('whoop').from('workouts').select('*').order('start_time', { ascending: false }).limit(20),
-        supabase.schema('whoop').from('sleep').select('*').eq('nap', false).order('start_time', { ascending: false }).limit(30),
+        supabase.schema('whoop').from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
         supabase.schema('whoop').from('sync_status').select('*').single(),
+        supabase.schema('whoop').from('blood_work').select('*').order('test_date', { ascending: false }).limit(200),
+        supabase.schema('whoop').from('journal').select('*').order('entry_date', { ascending: false }).limit(90),
       ])
 
       const cycles = cyclesData ?? []
-      const sleeps = sleepsData ?? []
+      const allSleeps = sleepsData ?? []
+      const sleeps = allSleeps.filter(s => !s.nap)
+      const naps = allSleeps.filter(s => s.nap)
 
       const latestCycle = cycles[0] ?? null
       const latestSleep = sleeps[0] ?? null
@@ -84,6 +96,9 @@ export function useWhoopData(): WhoopData {
         recentCycles: cycles,
         recentRecoveries,
         recentSleeps: sleeps,
+        recentNaps: naps,
+        bloodWork: bloodWorkData ?? [],
+        journal: journalData ?? [],
         profile: profileData,
         syncStatus: syncData,
         whoopConnected: !!tokenData?.whoop_user_id,

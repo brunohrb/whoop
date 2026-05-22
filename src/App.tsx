@@ -7,6 +7,8 @@ import Recovery from './pages/Recovery'
 import Sleep from './pages/Sleep'
 import Strain from './pages/Strain'
 import Settings from './pages/Settings'
+import Health from './pages/Health'
+import AIAnalysis from './pages/AIAnalysis'
 import ConnectWhoop from './pages/ConnectWhoop'
 import BottomNav from './components/BottomNav'
 import LoadingScreen from './components/LoadingScreen'
@@ -38,6 +40,8 @@ function AppWithAutoSync() {
           <Route path="/recuperacao" element={<Recovery />} />
           <Route path="/sono" element={<Sleep />} />
           <Route path="/esforco" element={<Strain />} />
+          <Route path="/saude" element={<Health />} />
+          <Route path="/ia" element={<AIAnalysis />} />
           <Route path="/configuracoes" element={<Settings />} />
           <Route path="/conectar-whoop" element={<ConnectWhoop />} />
           <Route path="*" element={<Navigate to="/" replace />} />

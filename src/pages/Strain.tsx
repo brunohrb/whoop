@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
-import CircleProgress from '../components/CircleProgress'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
 import HRZonesBar from '../components/HRZonesBar'
+import ArcGauge from '../components/ArcGauge'
 import { strainColor, sportName, workoutDuration, kcalFromKj, formatTime, formatShortDate } from '../utils/whoop'
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
 
@@ -16,23 +17,23 @@ const STRAIN_ZONES = [
 ]
 
 export default function Strain() {
-  const { latestCycle, recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
+  const { recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
+  const [dayIndex, setDayIndex] = useState(0)
 
   if (loading) return <LoadingScreen />
 
+  const latestCycle = recentCycles[dayIndex] ?? null
   const strain = latestCycle?.strain ?? null
   const color = strainColor(strain)
 
-  const todayWorkouts = recentWorkouts.filter(w => {
+  const cycleWorkouts = recentWorkouts.filter(w => {
     if (!latestCycle) return false
     const wStart = new Date(w.start_time).getTime()
     const cStart = new Date(latestCycle.start_time).getTime()
     const cEnd = latestCycle.end_time ? new Date(latestCycle.end_time).getTime() : Date.now()
     return wStart >= cStart && wStart <= cEnd
   })
-
-  const otherWorkouts = recentWorkouts.filter(w => !todayWorkouts.includes(w)).slice(0, 5)
 
   const chartData = recentCycles
     .slice(0, 14)
@@ -48,6 +49,10 @@ export default function Strain() {
       <PageHeader
         title="Esforço"
         date={latestCycle?.start_time}
+        onPrev={() => setDayIndex(i => i + 1)}
+        onNext={() => setDayIndex(i => i - 1)}
+        hasPrev={dayIndex < recentCycles.length - 1}
+        hasNext={dayIndex > 0}
         right={
           <button
             onClick={sync}
@@ -63,36 +68,30 @@ export default function Strain() {
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Hero */}
-          <div className="mx-4 mt-2 bg-surface rounded-3xl p-5">
-            <div className="flex flex-col items-center">
-              <CircleProgress
-                value={strain}
-                max={21}
-                size={180}
-                strokeWidth={14}
-                color={color}
-              >
-                <div className="flex flex-col items-center">
+          {/* Hero — anel WHOOP style */}
+          <div className="mx-4 mt-2 bg-surface rounded-3xl overflow-hidden">
+            <div className="flex flex-col items-center py-5">
+              <div className="relative flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                <ArcGauge value={strain} max={21} color={color} size={180} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-5xl font-bold tabular-nums" style={{ color }}>
                     {strain != null ? strain.toFixed(1) : '--'}
                   </span>
-                  <span className="text-gray-400 text-sm mt-1">/ 21</span>
-                  <span className="text-gray-500 text-xs mt-0.5">esforço</span>
+                  <span className="text-xs text-gray-500 mt-1">/ 21 esforço</span>
                 </div>
-              </CircleProgress>
-
-              <div className="flex w-full justify-around mt-5 pt-4 border-t border-white/5">
-                <StatItem label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
-                <div className="w-px bg-white/5" />
-                <StatItem label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
-                <div className="w-px bg-white/5" />
-                <StatItem label="FC Máx" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
               </div>
             </div>
 
+            <div className="flex justify-around pb-5 border-t border-white/5 pt-4">
+              <StatItem label="Calorias" value={`${kcalFromKj(latestCycle.kilojoule) || '--'}`} unit="kcal" color="#FF8C00" />
+              <div className="w-px bg-white/5" />
+              <StatItem label="FC Média" value={`${latestCycle.average_heart_rate ?? '--'}`} unit="bpm" color="#4FC3F7" />
+              <div className="w-px bg-white/5" />
+              <StatItem label="FC Máx" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
+            </div>
+
             {/* Legenda de zonas */}
-            <div className="flex justify-between mt-4 pt-3 border-t border-white/5">
+            <div className="flex justify-between px-5 pb-4 pt-2 border-t border-white/5">
               {STRAIN_ZONES.map(z => (
                 <div key={z.label} className="flex flex-col items-center gap-1">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color }} />
@@ -122,31 +121,19 @@ export default function Strain() {
             </div>
           )}
 
-          {/* Treinos de hoje */}
-          {todayWorkouts.length > 0 && (
+          {/* Treinos do dia */}
+          {cycleWorkouts.length > 0 && (
             <div className="px-4 mt-3">
               <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
-                Treinos de hoje
+                Treinos do dia
               </p>
               <div className="flex flex-col gap-3">
-                {todayWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
+                {cycleWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
               </div>
             </div>
           )}
 
-          {/* Treinos recentes */}
-          {otherWorkouts.length > 0 && (
-            <div className="px-4 mt-3">
-              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">
-                Treinos recentes
-              </p>
-              <div className="flex flex-col gap-3">
-                {otherWorkouts.map(w => <WorkoutCard key={w.id} workout={w} />)}
-              </div>
-            </div>
-          )}
-
-          {todayWorkouts.length === 0 && otherWorkouts.length === 0 && (
+          {cycleWorkouts.length === 0 && (
             <div className="mx-4 mt-3 bg-surface rounded-2xl p-4 text-center">
               <p className="text-gray-500 text-sm">Nenhum treino registrado</p>
               <p className="text-gray-600 text-xs mt-1">Registre atividades no app WHOOP</p>
@@ -170,6 +157,7 @@ function StatItem({ label, value, unit, color }: { label: string; value: string;
 
 function WorkoutCard({ workout }: { workout: ReturnType<typeof useWhoopData>['recentWorkouts'][0] }) {
   const color = strainColor(workout.strain)
+  const pctRec = workout.percent_recorded
   return (
     <div className="bg-surface rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
@@ -177,6 +165,9 @@ function WorkoutCard({ workout }: { workout: ReturnType<typeof useWhoopData>['re
           <p className="font-semibold">{sportName(workout.sport_id)}</p>
           <p className="text-xs text-gray-400">
             {formatTime(workout.start_time)} · {workoutDuration(workout.start_time, workout.end_time)}
+            {pctRec != null && pctRec < 100 && (
+              <span className="ml-1 text-yellow-400/80">· {pctRec.toFixed(0)}% gravado</span>
+            )}
           </p>
         </div>
         <div className="text-right">

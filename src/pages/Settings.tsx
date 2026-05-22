@@ -142,6 +142,21 @@ export default function Settings() {
           </Section>
         )}
 
+        {/* App */}
+        <Section title="App">
+          <button
+            onClick={async () => {
+              const keys = await caches.keys()
+              await Promise.all(keys.map(k => caches.delete(k)))
+              window.location.reload()
+            }}
+            className="w-full border border-white/10 text-gray-300 py-3 rounded-xl text-sm font-medium"
+          >
+            Limpar cache e atualizar
+          </button>
+          <p className="text-xs text-gray-600 mt-2 text-center">Use se o app estiver desatualizado</p>
+        </Section>
+
         {/* Sair */}
         <button
           onClick={signOut}

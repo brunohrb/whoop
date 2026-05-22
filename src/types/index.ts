@@ -51,8 +51,14 @@ export interface WhoopSleep {
   total_light_sleep_time_milli: number | null
   total_slow_wave_sleep_time_milli: number | null
   total_rem_sleep_time_milli: number | null
+  total_no_data_time_milli: number | null
+  sleep_cycle_count: number | null
   disturbance_count: number | null
   sleep_needed_baseline_milli: number | null
+  sleep_needed_from_sleep_debt_milli: number | null
+  sleep_needed_from_recent_strain_milli: number | null
+  sleep_needed_from_recent_nap_milli: number | null
+  respiratory_rate: number | null
   sleep_performance_percentage: number | null
   sleep_consistency_percentage: number | null
   sleep_efficiency_percentage: number | null
@@ -88,3 +94,29 @@ export interface SyncStatus {
 }
 
 export type RecoveryLevel = 'green' | 'yellow' | 'red' | 'unknown'
+
+export interface JournalEntry {
+  id: string
+  user_id: string
+  entry_date: string
+  sleep_quality: number | null
+  energy: number | null
+  mood: number | null
+  stress: number | null
+  tags: string[]
+  notes: string | null
+  created_at: string
+}
+
+export interface BloodWork {
+  id: string
+  user_id: string
+  test_date: string
+  marker: string
+  value: number
+  unit: string
+  ref_min: number | null
+  ref_max: number | null
+  notes: string | null
+  created_at: string
+}
