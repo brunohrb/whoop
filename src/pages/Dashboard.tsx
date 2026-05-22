@@ -109,6 +109,19 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* AI Analysis entry */}
+          <Link
+            to="/ia"
+            className="mx-4 mt-3 bg-gradient-to-r from-whoop-green/15 to-purple-500/15 border border-whoop-green/20 rounded-2xl p-4 flex items-center gap-3 active:opacity-70"
+          >
+            <span className="text-2xl">🤖</span>
+            <div className="flex-1">
+              <p className="font-semibold text-sm">Análise por IA</p>
+              <p className="text-xs text-gray-400 mt-0.5">O Claude analisa sua saúde completa e dá recomendações</p>
+            </div>
+            <span className="text-gray-500 text-sm">›</span>
+          </Link>
+
           {/* Strain Coach */}
           {recoveryScore != null && (
             <StrainCoach recovery={recoveryScore} strain={strain} />

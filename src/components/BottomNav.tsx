@@ -6,6 +6,7 @@ const tabs = [
   { to: '/sono', label: 'Sono', icon: MoonIcon },
   { to: '/esforco', label: 'Esforço', icon: BoltIcon },
   { to: '/saude', label: 'Saúde', icon: HealthIcon },
+  { to: '/ia', label: 'IA', icon: AIIcon },
 ]
 
 export default function BottomNav() {
@@ -60,6 +61,14 @@ function BoltIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+    </svg>
+  )
+}
+
+function AIIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18 2.5 2.5 0 0 0 10 15.5 2.5 2.5 0 0 0 7.5 13m9 0A2.5 2.5 0 0 0 14 15.5a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 16.5 13z"/>
     </svg>
   )
 }
