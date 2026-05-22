@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
@@ -14,6 +14,47 @@ import BottomNav from './components/BottomNav'
 import LoadingScreen from './components/LoadingScreen'
 import { useWhoopData } from './hooks/useWhoopData'
 import { useSync } from './hooks/useSync'
+
+function UpdateBanner() {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    navigator.serviceWorker.ready.then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing
+        if (!sw) return
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            setShow(true)
+          }
+        })
+      })
+    })
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload()
+    })
+  }, [])
+
+  if (!show) return null
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-whoop-green text-black text-sm font-bold px-4 py-3 flex items-center justify-between safe-top">
+      <span>Nova versão disponível!</span>
+      <button
+        onClick={async () => {
+          const keys = await caches.keys()
+          await Promise.all(keys.map(k => caches.delete(k)))
+          const reg = await navigator.serviceWorker.getRegistration()
+          reg?.waiting?.postMessage({ type: 'SKIP_WAITING' })
+        }}
+        className="bg-black text-whoop-green px-3 py-1 rounded-lg text-xs font-bold"
+      >
+        Atualizar
+      </button>
+    </div>
+  )
+}
 
 function AppWithAutoSync() {
   const { syncStatus, refresh } = useWhoopData()
@@ -34,6 +75,7 @@ function AppWithAutoSync() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white overflow-hidden">
+      <UpdateBanner />
       <div className="flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
