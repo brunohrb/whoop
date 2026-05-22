@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
 import SleepStagesBar from '../components/SleepStagesBar'
+import ArcGauge from '../components/ArcGauge'
 import { millisToTime, millisToHours, formatTime, formatShortDate } from '../utils/whoop'
 import { BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts'
 
@@ -64,26 +65,31 @@ export default function Sleep() {
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Score + horários */}
+          {/* Score + horários — WHOOP style */}
           <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
-            <div className="flex">
-              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
-                <span className="text-4xl font-bold tabular-nums" style={{ color: '#9C59D1' }}>
-                  {perfScore != null ? Math.round(perfScore) : '--'}
-                </span>
-                <span className="text-[11px] text-gray-500 mt-0.5">% desempenho</span>
+            <div className="flex flex-col items-center pt-5 pb-3">
+              <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                <ArcGauge value={perfScore} max={100} color="#9C59D1" size={160} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-4xl font-bold tabular-nums" style={{ color: '#9C59D1' }}>
+                    {perfScore != null ? Math.round(perfScore) : '--'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">% desempenho</span>
+                </div>
               </div>
-              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
-                <span className="text-2xl font-bold tabular-nums text-white">{formatTime(latestSleep.start_time)}</span>
-                <span className="text-[11px] text-gray-500 mt-0.5">dormiu</span>
+            </div>
+            <div className="flex border-t border-white/8">
+              <div className="flex-1 flex flex-col items-center py-3 px-2 gap-0.5 border-r border-white/8">
+                <span className="text-lg font-bold tabular-nums text-white">{formatTime(latestSleep.start_time)}</span>
+                <span className="text-[10px] text-gray-500">dormiu</span>
               </div>
-              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1 border-r border-white/8">
-                <span className="text-2xl font-bold tabular-nums text-white">{formatTime(latestSleep.end_time)}</span>
-                <span className="text-[11px] text-gray-500 mt-0.5">acordou</span>
+              <div className="flex-1 flex flex-col items-center py-3 px-2 gap-0.5 border-r border-white/8">
+                <span className="text-lg font-bold tabular-nums text-white">{formatTime(latestSleep.end_time)}</span>
+                <span className="text-[10px] text-gray-500">acordou</span>
               </div>
-              <div className="flex-1 flex flex-col items-center py-5 px-2 gap-1">
-                <span className="text-2xl font-bold tabular-nums" style={{ color: '#9C59D1' }}>{millisToTime(totalSleep)}</span>
-                <span className="text-[11px] text-gray-500 mt-0.5">total</span>
+              <div className="flex-1 flex flex-col items-center py-3 px-2 gap-0.5">
+                <span className="text-lg font-bold tabular-nums" style={{ color: '#9C59D1' }}>{millisToTime(totalSleep)}</span>
+                <span className="text-[10px] text-gray-500">total</span>
               </div>
             </div>
           </div>

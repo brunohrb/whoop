@@ -2,6 +2,7 @@ import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import { useNavigate, Link } from 'react-router-dom'
 import LoadingScreen from '../components/LoadingScreen'
+import ArcGauge from '../components/ArcGauge'
 import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj } from '../utils/whoop'
 
 export default function Dashboard() {
@@ -27,13 +28,11 @@ export default function Dashboard() {
     ? (latestSleep.total_in_bed_time_milli ?? 0) - (latestSleep.total_awake_time_milli ?? 0)
     : null
 
-  // Trend vs yesterday
   const prevRecovery = recentRecoveries[1]?.recovery_score ?? null
   const recovTrend = recoveryScore != null && prevRecovery != null
     ? recoveryScore - prevRecovery
     : null
 
-  // 7-day avg recovery
   const weekAvg = recentRecoveries.slice(0, 7).length > 0
     ? Math.round(recentRecoveries.slice(0, 7).reduce((s, r) => s + (r.recovery_score ?? 0), 0) / recentRecoveries.slice(0, 7).length)
     : null
@@ -45,7 +44,9 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold">Hoje</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {latestCycle?.start_time ? formatDate(latestCycle.start_time) : new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {latestCycle?.start_time
+              ? formatDate(latestCycle.start_time)
+              : new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -76,29 +77,34 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* 3 metric summary */}
-          <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
-            <div className="flex">
-              <button onClick={() => navigate('/recuperacao')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
-                <span className="text-4xl font-bold tabular-nums" style={{ color: recovColor }}>
-                  {recoveryScore != null ? Math.round(recoveryScore) : '--'}
-                </span>
-                <span className="text-[11px] text-gray-500 mt-0.5">% recuperação</span>
-              </button>
-
-              <button onClick={() => navigate('/sono')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70 border-r border-white/8">
-                <span className="text-4xl font-bold tabular-nums" style={{ color: sleepColor }}>
-                  {sleepScore != null ? Math.round(sleepScore) : '--'}
-                </span>
-                <span className="text-[11px] text-gray-500 mt-0.5">% sono</span>
-              </button>
-
-              <button onClick={() => navigate('/esforco')} className="flex-1 flex flex-col items-center py-5 px-2 gap-1 active:opacity-70">
-                <span className="text-4xl font-bold tabular-nums" style={{ color: strColor }}>
-                  {strain != null ? strain.toFixed(1) : '--'}
-                </span>
-                <span className="text-[11px] text-gray-500 mt-0.5">/21 esforço</span>
-              </button>
+          {/* 3 ring summary — WHOOP style */}
+          <div className="mx-4 mt-3 bg-surface rounded-3xl px-4 py-5">
+            <div className="flex justify-around items-center">
+              <RingMetric
+                value={recoveryScore}
+                max={100}
+                color={recovColor}
+                label="Recuperação"
+                unit="%"
+                onTap={() => navigate('/recuperacao')}
+              />
+              <RingMetric
+                value={sleepScore}
+                max={100}
+                color={sleepColor}
+                label="Sono"
+                unit="%"
+                onTap={() => navigate('/sono')}
+              />
+              <RingMetric
+                value={strain}
+                max={21}
+                color={strColor}
+                label="Esforço"
+                unit="/21"
+                decimals={1}
+                onTap={() => navigate('/esforco')}
+              />
             </div>
           </div>
 
@@ -153,7 +159,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* No data at all */}
           {!latestRecovery && !latestSleep && !latestCycle && (
             <div className="mx-4 mt-4 bg-surface rounded-2xl p-6 text-center">
               <p className="text-gray-400 text-sm mb-3">Nenhum dado ainda</p>
@@ -169,6 +174,32 @@ export default function Dashboard() {
         </>
       )}
     </div>
+  )
+}
+
+function RingMetric({
+  value, max, color, label, unit, decimals = 0, onTap,
+}: {
+  value: number | null; max: number; color: string
+  label: string; unit: string; decimals?: number; onTap: () => void
+}) {
+  const display = value != null
+    ? decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString()
+    : '--'
+
+  return (
+    <button onClick={onTap} className="flex flex-col items-center gap-1 active:opacity-70">
+      <div className="relative flex items-center justify-center" style={{ width: 100, height: 100 }}>
+        <ArcGauge value={value} max={max} color={color} size={100} />
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-bold tabular-nums leading-none" style={{ color }}>
+            {display}
+          </span>
+          <span className="text-[10px] text-gray-500 mt-0.5">{unit}</span>
+        </div>
+      </div>
+      <span className="text-[11px] text-gray-400 font-medium">{label}</span>
+    </button>
   )
 }
 

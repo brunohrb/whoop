@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
 import HRZonesBar from '../components/HRZonesBar'
+import ArcGauge from '../components/ArcGauge'
 import { strainColor, sportName, workoutDuration, kcalFromKj, formatTime, formatShortDate } from '../utils/whoop'
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts'
 
@@ -67,13 +68,18 @@ export default function Strain() {
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Hero */}
+          {/* Hero — anel WHOOP style */}
           <div className="mx-4 mt-2 bg-surface rounded-3xl overflow-hidden">
-            <div className="flex flex-col items-center py-6">
-              <span className="text-7xl font-bold tabular-nums" style={{ color }}>
-                {strain != null ? strain.toFixed(1) : '--'}
-              </span>
-              <span className="text-sm text-gray-400 mt-1">/ 21 esforço</span>
+            <div className="flex flex-col items-center py-5">
+              <div className="relative flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                <ArcGauge value={strain} max={21} color={color} size={180} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-bold tabular-nums" style={{ color }}>
+                    {strain != null ? strain.toFixed(1) : '--'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">/ 21 esforço</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-around pb-5 border-t border-white/5 pt-4">

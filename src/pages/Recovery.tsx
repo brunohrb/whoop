@@ -5,6 +5,7 @@ import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import NoDataBanner from '../components/NoDataBanner'
 import LoadingScreen from '../components/LoadingScreen'
+import ArcGauge from '../components/ArcGauge'
 import { recoveryColor, recoveryLevel, formatShortDate } from '../utils/whoop'
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, LineChart, Line, YAxis, Tooltip } from 'recharts'
 
@@ -89,16 +90,19 @@ export default function Recovery() {
         <NoDataBanner connected={whoopConnected} onSync={sync} syncing={syncing} />
       ) : (
         <>
-          {/* Score principal */}
+          {/* Score principal — anel WHOOP style */}
           <div className="mx-4 mt-3 bg-surface rounded-3xl overflow-hidden">
             <div className="flex flex-col items-center py-6">
-              <span className="text-7xl font-bold tabular-nums" style={{ color }}>
-                {score != null ? Math.round(score) : '--'}
-              </span>
-              <span className="text-sm text-gray-400 mt-1">% recuperação</span>
-              <span className="text-base font-semibold mt-2" style={{ color }}>
-                {levelLabel}
-              </span>
+              <div className="relative flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                <ArcGauge value={score} max={100} color={color} size={180} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-bold tabular-nums" style={{ color }}>
+                    {score != null ? Math.round(score) : '--'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">% recuperação</span>
+                  <span className="text-sm font-semibold mt-1" style={{ color }}>{levelLabel}</span>
+                </div>
+              </div>
             </div>
           </div>
 
