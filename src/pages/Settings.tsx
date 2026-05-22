@@ -148,6 +148,8 @@ export default function Settings() {
             onClick={async () => {
               const keys = await caches.keys()
               await Promise.all(keys.map(k => caches.delete(k)))
+              const reg = await navigator.serviceWorker.getRegistration()
+              if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
               window.location.reload()
             }}
             className="w-full border border-white/10 text-gray-300 py-3 rounded-xl text-sm font-medium"
