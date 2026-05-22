@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus, BloodWork } from '../types'
+import type { WhoopCycle, WhoopRecovery, WhoopSleep, WhoopWorkout, WhoopProfile, SyncStatus, BloodWork, JournalEntry } from '../types'
 
 interface WhoopData {
   latestCycle: WhoopCycle | null
@@ -12,6 +12,7 @@ interface WhoopData {
   recentSleeps: WhoopSleep[]
   recentNaps: WhoopSleep[]
   bloodWork: BloodWork[]
+  journal: JournalEntry[]
   profile: WhoopProfile | null
   syncStatus: SyncStatus | null
   whoopConnected: boolean
@@ -31,6 +32,7 @@ export function useWhoopData(): WhoopData {
     recentSleeps: [],
     recentNaps: [],
     bloodWork: [],
+    journal: [],
     profile: null,
     syncStatus: null,
     whoopConnected: false,
@@ -49,6 +51,7 @@ export function useWhoopData(): WhoopData {
         { data: sleepsData },
         { data: syncData },
         { data: bloodWorkData },
+        { data: journalData },
       ] = await Promise.all([
         supabase.schema('whoop').from('user_tokens').select('whoop_user_id').single(),
         supabase.schema('whoop').from('profiles').select('*').single(),
@@ -57,6 +60,7 @@ export function useWhoopData(): WhoopData {
         supabase.schema('whoop').from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
         supabase.schema('whoop').from('sync_status').select('*').single(),
         supabase.schema('whoop').from('blood_work').select('*').order('test_date', { ascending: false }).limit(200),
+        supabase.schema('whoop').from('journal').select('*').order('entry_date', { ascending: false }).limit(90),
       ])
 
       const cycles = cyclesData ?? []
@@ -94,6 +98,7 @@ export function useWhoopData(): WhoopData {
         recentSleeps: sleeps,
         recentNaps: naps,
         bloodWork: bloodWorkData ?? [],
+        journal: journalData ?? [],
         profile: profileData,
         syncStatus: syncData,
         whoopConnected: !!tokenData?.whoop_user_id,

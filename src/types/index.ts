@@ -95,6 +95,19 @@ export interface SyncStatus {
 
 export type RecoveryLevel = 'green' | 'yellow' | 'red' | 'unknown'
 
+export interface JournalEntry {
+  id: string
+  user_id: string
+  entry_date: string
+  sleep_quality: number | null
+  energy: number | null
+  mood: number | null
+  stress: number | null
+  tags: string[]
+  notes: string | null
+  created_at: string
+}
+
 export interface BloodWork {
   id: string
   user_id: string

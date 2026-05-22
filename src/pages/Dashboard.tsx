@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import LoadingScreen from '../components/LoadingScreen'
 import ArcGauge from '../components/ArcGauge'
 import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj } from '../utils/whoop'
+import type { WhoopRecovery, WhoopSleep } from '../types'
 
 export default function Dashboard() {
   const {
@@ -108,6 +109,14 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Strain Coach */}
+          {recoveryScore != null && (
+            <StrainCoach recovery={recoveryScore} strain={strain} />
+          )}
+
+          {/* Insights */}
+          <Insights recoveries={recentRecoveries} sleep={latestSleep} />
+
           {/* Recovery detail card */}
           {latestRecovery && (
             <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
@@ -200,6 +209,110 @@ function RingMetric({
       </div>
       <span className="text-[11px] text-gray-400 font-medium">{label}</span>
     </button>
+  )
+}
+
+// ─── Strain Coach ─────────────────────────────────────────────────────────────
+function StrainCoach({ recovery, strain }: { recovery: number; strain: number | null }) {
+  let zoneLabel: string, zoneColor: string, desc: string, min: number, max: number
+  if (recovery >= 67) {
+    zoneLabel = 'Verde'; zoneColor = '#00D4A0'
+    desc = 'Corpo pronto — busque esforço alto hoje'
+    min = 14; max = 21
+  } else if (recovery >= 34) {
+    zoneLabel = 'Amarela'; zoneColor = '#F5C518'
+    desc = 'Esforço moderado — não force demais'
+    min = 10; max = 14
+  } else {
+    zoneLabel = 'Vermelha'; zoneColor = '#FF4444'
+    desc = 'Priorize descanso — esforço leve no máximo'
+    min = 0; max = 10
+  }
+
+  const current = strain ?? 0
+  const pct = Math.min(current / 21, 1)
+
+  return (
+    <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">Orientação de Esforço</p>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: zoneColor, backgroundColor: `${zoneColor}20` }}>
+          Zona {zoneLabel}
+        </span>
+      </div>
+      <p className="text-sm text-gray-300 mb-3">{desc}</p>
+      {/* Progress bar */}
+      <div className="relative h-2.5 bg-surface-3 rounded-full overflow-hidden">
+        <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+          style={{ width: `${pct * 100}%`, backgroundColor: strainColor(strain) }} />
+        {/* Target zone band */}
+        <div className="absolute inset-y-0 rounded-full opacity-30"
+          style={{ left: `${(min / 21) * 100}%`, width: `${((max - min) / 21) * 100}%`, backgroundColor: zoneColor }} />
+      </div>
+      <div className="flex justify-between text-[10px] text-gray-600 mt-1.5">
+        <span>0</span>
+        <span style={{ color: zoneColor }}>Alvo: {min}–{max}</span>
+        <span>21</span>
+      </div>
+      {strain != null && (
+        <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-white/5">
+          Esforço atual: <span className="font-bold" style={{ color: strainColor(strain) }}>{strain.toFixed(1)}</span>
+          {current >= min && current <= max && <span className="text-whoop-green ml-2">✓ na zona ideal</span>}
+          {current > max && <span className="text-red-400 ml-2">acima do alvo</span>}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Insights ─────────────────────────────────────────────────────────────────
+function Insights({ recoveries, sleep }: { recoveries: WhoopRecovery[]; sleep: WhoopSleep | null }) {
+  const insights: { text: string; color: string; icon: string }[] = []
+
+  if (recoveries.length >= 3) {
+    // HRV vs 7-day avg
+    const todayHRV = recoveries[0]?.hrv_rmssd_milli
+    const past = recoveries.slice(1, 8).filter(r => r.hrv_rmssd_milli != null)
+    if (todayHRV && past.length >= 3) {
+      const avg = past.reduce((s, r) => s + r.hrv_rmssd_milli!, 0) / past.length
+      const pct = ((todayHRV - avg) / avg) * 100
+      if (pct >= 15) insights.push({ icon: '📈', color: '#00D4A0', text: `VFC ${Math.round(pct)}% acima da média — ótimo sinal de recuperação` })
+      else if (pct <= -15) insights.push({ icon: '📉', color: '#FF4444', text: `VFC ${Math.abs(Math.round(pct))}% abaixo da média — corpo pedindo descanso` })
+    }
+
+    // Green streak
+    let streak = 0
+    for (const r of recoveries) { if ((r.recovery_score ?? 0) >= 67) streak++; else break }
+    if (streak >= 3) insights.push({ icon: '🔥', color: '#00D4A0', text: `${streak} dias consecutivos de recuperação ótima — você está voando!` })
+
+    // Low recovery streak
+    let lowStreak = 0
+    for (const r of recoveries) { if ((r.recovery_score ?? 100) < 34) lowStreak++; else break }
+    if (lowStreak >= 2) insights.push({ icon: '⚠️', color: '#FF4444', text: `${lowStreak} dias seguidos de recuperação baixa — priorize sono e descanso` })
+  }
+
+  // Sleep debt
+  if (sleep) {
+    const totalSleep = (sleep.total_in_bed_time_milli ?? 0) - (sleep.total_awake_time_milli ?? 0)
+    const needed = (sleep.sleep_needed_baseline_milli ?? 0) + (sleep.sleep_needed_from_recent_strain_milli ?? 0) + (sleep.sleep_needed_from_sleep_debt_milli ?? 0)
+    if (needed > 0) {
+      const pct = totalSleep / needed
+      if (pct < 0.85) insights.push({ icon: '😴', color: '#9C59D1', text: `Você dormiu ${Math.round(pct * 100)}% da necessidade — tente dormir mais cedo hoje` })
+      else if (pct >= 1.05) insights.push({ icon: '💜', color: '#9C59D1', text: `Sono em dia! Você dormiu mais do que o necessário — ótima recuperação` })
+    }
+  }
+
+  if (insights.length === 0) return null
+
+  return (
+    <div className="mx-4 mt-3 flex flex-col gap-2">
+      {insights.slice(0, 3).map((ins, i) => (
+        <div key={i} className="bg-surface rounded-xl px-3 py-2.5 flex items-start gap-2.5">
+          <span className="text-base leading-none mt-0.5">{ins.icon}</span>
+          <p className="text-xs text-gray-300 leading-relaxed">{ins.text}</p>
+        </div>
+      ))}
+    </div>
   )
 }
 
