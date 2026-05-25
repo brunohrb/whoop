@@ -37,6 +37,7 @@ export function millisToHours(ms: number | null | undefined): number {
 
 export function sportName(sportId: number | null | undefined): string {
   const sports: Record<number, string> = {
+    [-1]: 'Atividade',
     0: 'Corrida',
     1: 'Ciclismo',
     16: 'Basquete',
@@ -68,7 +69,7 @@ export function sportName(sportId: number | null | undefined): string {
     42: 'Escalada',
     43: 'Golfe (Indoor)',
     44: 'Musculação',
-    45: 'Funcional',
+    45: 'Musculação',       // WEIGHTLIFTING (confirmed via WHOOP app)
     46: 'Atletismo',
     47: 'Patinação',
     48: 'Corrida (Esteira)',
@@ -89,7 +90,7 @@ export function sportName(sportId: number | null | undefined): string {
     63: 'Futebol (Salão)',
     64: 'Squash',
     65: 'Lacrosse (Caixa)',
-    66: 'Softbol',
+    66: 'Stairmaster',      // STAIRMASTER (confirmed via WHOOP app)
     67: 'Ultime',
     68: 'Boliche',
     69: 'Cricket',
