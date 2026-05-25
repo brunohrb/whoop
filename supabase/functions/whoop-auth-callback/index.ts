@@ -11,7 +11,7 @@ const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/whoop-auth-callback`
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
-  const userId = url.searchParams.get("state") // state = supabase user_id
+  const userId = url.searchParams.get("state")
   const error = url.searchParams.get("error")
 
   if (error) {
@@ -22,8 +22,9 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${APP_URL}/configuracoes?whoop_error=parametros_invalidos`)
   }
 
-  // Validar que o userId existe no Supabase
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  // Validar que o userId existe no Supabase
   const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
   if (userError || !userData?.user) {
     console.error("User ID inválido:", userId, userError)
@@ -69,36 +70,62 @@ Deno.serve(async (req: Request) => {
     if (bodyRes.ok) bodyData = await bodyRes.json()
   } catch (e) { console.error("Erro ao buscar medidas:", e) }
 
-  // Salvar tokens (service_role bypassa RLS)
-  const { error: tokenSaveErr } = await supabase
+  const tokenRow = {
+    user_id: userId,
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token ?? null,
+    token_type: tokens.token_type ?? "Bearer",
+    expires_at: expiresAt,
+    scope: tokens.scope ?? null,
+    whoop_user_id: whoopProfile?.user_id != null ? Number(whoopProfile.user_id) : null,
+  }
+
+  // Check if row exists, then update or insert (avoids upsert quirks with non-public schemas)
+  const { data: existing } = await supabase
     .schema("whoop")
     .from("user_tokens")
-    .upsert(
-      {
-        user_id: userId,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token ?? null,
-        token_type: tokens.token_type ?? "Bearer",
-        expires_at: expiresAt,
-        scope: tokens.scope ?? null,
-        whoop_user_id: whoopProfile?.user_id ?? null,
-      },
-      { onConflict: "user_id" }
-    )
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  let tokenSaveErr
+  if (existing) {
+    const { error } = await supabase
+      .schema("whoop")
+      .from("user_tokens")
+      .update({
+        access_token: tokenRow.access_token,
+        refresh_token: tokenRow.refresh_token,
+        token_type: tokenRow.token_type,
+        expires_at: tokenRow.expires_at,
+        scope: tokenRow.scope,
+        whoop_user_id: tokenRow.whoop_user_id,
+      })
+      .eq("user_id", userId)
+    tokenSaveErr = error
+  } else {
+    const { error } = await supabase
+      .schema("whoop")
+      .from("user_tokens")
+      .insert(tokenRow)
+    tokenSaveErr = error
+  }
 
   if (tokenSaveErr) {
-    console.error("Erro ao salvar tokens:", tokenSaveErr)
-    return Response.redirect(`${APP_URL}/configuracoes?whoop_error=erro_salvar_tokens`)
+    console.error("Erro ao salvar tokens:", JSON.stringify(tokenSaveErr))
+    return Response.redirect(
+      `${APP_URL}/configuracoes?whoop_error=${encodeURIComponent(`erro_salvar_tokens:${tokenSaveErr.code}:${tokenSaveErr.message}`)}`
+    )
   }
 
   if (whoopProfile) {
-    await supabase
+    const { error: profileErr } = await supabase
       .schema("whoop")
       .from("profiles")
       .upsert(
         {
           user_id: userId,
-          whoop_user_id: whoopProfile.user_id ?? null,
+          whoop_user_id: whoopProfile.user_id != null ? Number(whoopProfile.user_id) : null,
           email: whoopProfile.email ?? null,
           first_name: whoopProfile.first_name ?? null,
           last_name: whoopProfile.last_name ?? null,
@@ -108,6 +135,7 @@ Deno.serve(async (req: Request) => {
         },
         { onConflict: "user_id" }
       )
+    if (profileErr) console.error("Erro ao salvar perfil:", JSON.stringify(profileErr))
   }
 
   return Response.redirect(`${APP_URL}/configuracoes?whoop_connected=true`)
