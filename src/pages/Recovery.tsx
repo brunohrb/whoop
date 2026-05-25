@@ -47,6 +47,8 @@ export default function Recovery() {
         date: formatShortDate(cycle.start_time),
         hrv: rec?.hrv_rmssd_milli ? Math.round(rec.hrv_rmssd_milli) : null,
         rhr: rec?.resting_heart_rate ? Math.round(rec.resting_heart_rate) : null,
+        spo2: rec?.spo2_percentage ? parseFloat(rec.spo2_percentage.toFixed(1)) : null,
+        temp: rec?.skin_temp_celsius ? parseFloat(rec.skin_temp_celsius.toFixed(1)) : null,
       }
     })
 
@@ -186,6 +188,36 @@ export default function Recovery() {
                   <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} />
                   <Tooltip formatter={(v: number) => [`${v} bpm`, 'FC Repouso']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
                   <Line type="monotone" dataKey="rhr" stroke="#4FC3F7" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* SpO2 trend */}
+          {hrvData.some(d => d.spo2 != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">SpO₂ · 30 dias (%)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                  <Tooltip formatter={(v: number) => [`${v}%`, 'SpO₂']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="spo2" stroke="#9C59D1" dot={false} strokeWidth={2} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Skin temp trend */}
+          {hrvData.some(d => d.temp != null) && (
+            <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">Temperatura da Pele · 30 dias (°C)</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <LineChart data={hrvData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
+                  <XAxis dataKey="date" tick={{ fill: '#666', fontSize: 8 }} axisLine={false} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: '#666', fontSize: 9 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                  <Tooltip formatter={(v: number) => [`${v}°C`, 'Temp. Pele']} contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }} />
+                  <Line type="monotone" dataKey="temp" stroke="#FF8C00" dot={false} strokeWidth={2} connectNulls />
                 </LineChart>
               </ResponsiveContainer>
             </div>

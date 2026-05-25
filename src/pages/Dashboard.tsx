@@ -3,13 +3,13 @@ import { useSync } from '../hooks/useSync'
 import { useNavigate, Link } from 'react-router-dom'
 import LoadingScreen from '../components/LoadingScreen'
 import ArcGauge from '../components/ArcGauge'
-import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj } from '../utils/whoop'
-import type { WhoopRecovery, WhoopSleep } from '../types'
+import { recoveryColor, strainColor, millisToTime, formatDate, kcalFromKj, sportName } from '../utils/whoop'
+import type { WhoopRecovery, WhoopSleep, WhoopWorkout } from '../types'
 
 export default function Dashboard() {
   const {
     latestRecovery, latestSleep, latestCycle,
-    recentRecoveries,
+    recentRecoveries, recentSleeps, recentWorkouts, recentCycles,
     whoopConnected, loading, refresh,
   } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
@@ -36,6 +36,34 @@ export default function Dashboard() {
 
   const weekAvg = recentRecoveries.slice(0, 7).length > 0
     ? Math.round(recentRecoveries.slice(0, 7).reduce((s, r) => s + (r.recovery_score ?? 0), 0) / recentRecoveries.slice(0, 7).length)
+    : null
+
+  // Weekly comparison (this week vs last week)
+  const thisWeekRecoveries = recentRecoveries.slice(0, 7)
+  const lastWeekRecoveries = recentRecoveries.slice(7, 14)
+  const thisWeekSleeps = recentSleeps.slice(0, 7)
+  const lastWeekSleeps = recentSleeps.slice(7, 14)
+  const thisWeekCycles = recentCycles.slice(0, 7)
+  const lastWeekCycles = recentCycles.slice(7, 14)
+
+  const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null
+
+  const thisWeekAvgRecov = avg(thisWeekRecoveries.map(r => r.recovery_score ?? 0).filter(Boolean))
+  const lastWeekAvgRecov = avg(lastWeekRecoveries.map(r => r.recovery_score ?? 0).filter(Boolean))
+  const thisWeekAvgSleep = avg(thisWeekSleeps.map(s => s.sleep_performance_percentage ?? 0).filter(Boolean))
+  const lastWeekAvgSleep = avg(lastWeekSleeps.map(s => s.sleep_performance_percentage ?? 0).filter(Boolean))
+  const thisWeekAvgStrain = avg(thisWeekCycles.map(c => c.strain ? Math.round(c.strain * 10) / 10 : 0).filter(Boolean))
+  const lastWeekAvgStrain = avg(lastWeekCycles.map(c => c.strain ? Math.round(c.strain * 10) / 10 : 0).filter(Boolean))
+
+  // Personal records
+  const bestRecovery = recentRecoveries.length > 0
+    ? Math.max(...recentRecoveries.map(r => r.recovery_score ?? 0))
+    : null
+  const bestSleep = recentSleeps.length > 0
+    ? Math.max(...recentSleeps.map(s => s.sleep_performance_percentage ?? 0))
+    : null
+  const topWorkout = recentWorkouts.length > 0
+    ? recentWorkouts.reduce((best, w) => (w.strain ?? 0) > (best.strain ?? 0) ? w : best)
     : null
 
   return (
@@ -179,6 +207,24 @@ export default function Dashboard() {
                 <MiniStat label="FC Máxima" value={`${latestCycle.max_heart_rate ?? '--'}`} unit="bpm" color="#FF4444" />
               </div>
             </div>
+          )}
+
+          {/* Weekly comparison */}
+          {thisWeekAvgRecov != null && lastWeekAvgRecov != null && (
+            <WeekComparison
+              thisRecov={thisWeekAvgRecov} lastRecov={lastWeekAvgRecov}
+              thisSleep={thisWeekAvgSleep} lastSleep={lastWeekAvgSleep}
+              thisStrain={thisWeekAvgStrain} lastStrain={lastWeekAvgStrain}
+            />
+          )}
+
+          {/* Personal records */}
+          {(bestRecovery != null || bestSleep != null || topWorkout != null) && (
+            <PersonalRecords
+              bestRecovery={bestRecovery}
+              bestSleep={bestSleep}
+              topWorkout={topWorkout}
+            />
           )}
 
           {!latestRecovery && !latestSleep && !latestCycle && (
@@ -336,6 +382,102 @@ function MiniStat({ label, value, unit, color }: { label: string; value: string;
       <p className="font-bold" style={{ color }}>
         {value} <span className="text-xs font-normal text-gray-400">{unit}</span>
       </p>
+    </div>
+  )
+}
+
+// ─── Weekly Comparison ────────────────────────────────────────────────────────
+function WeekComparison({
+  thisRecov, lastRecov, thisSleep, lastSleep, thisStrain, lastStrain,
+}: {
+  thisRecov: number; lastRecov: number
+  thisSleep: number | null; lastSleep: number | null
+  thisStrain: number | null; lastStrain: number | null
+}) {
+  const diff = (a: number, b: number) => {
+    const d = a - b
+    return { d, sign: d >= 0 ? '+' : '', color: d >= 0 ? '#00D4A0' : '#FF4444' }
+  }
+  const rd = diff(thisRecov, lastRecov)
+  const sd = thisSleep != null && lastSleep != null ? diff(thisSleep, lastSleep) : null
+  const std = thisStrain != null && lastStrain != null ? diff(thisStrain, lastStrain) : null
+
+  return (
+    <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+      <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">Esta semana vs anterior</p>
+      <div className="grid grid-cols-3 gap-3">
+        <WeekCol label="Recuperação" unit="%" this={`${thisRecov}`} diff={rd} />
+        {sd && thisSleep != null && <WeekCol label="Sono" unit="%" this={`${thisSleep}`} diff={sd} />}
+        {std && thisStrain != null && <WeekCol label="Esforço" unit="/21" this={`${thisStrain}`} diff={std} />}
+      </div>
+    </div>
+  )
+}
+
+function WeekCol({ label, unit, this: val, diff }: {
+  label: string; unit: string; this: string
+  diff: { d: number; sign: string; color: string }
+}) {
+  return (
+    <div className="flex flex-col items-center bg-surface-2 rounded-xl p-2.5">
+      <p className="text-[10px] text-gray-500 mb-1">{label}</p>
+      <p className="text-base font-bold text-white">{val}<span className="text-xs text-gray-400 ml-0.5">{unit}</span></p>
+      <p className="text-[11px] font-semibold mt-0.5" style={{ color: diff.color }}>
+        {diff.sign}{Math.round(Math.abs(diff.d))}{unit}
+      </p>
+    </div>
+  )
+}
+
+// ─── Personal Records ─────────────────────────────────────────────────────────
+function PersonalRecords({
+  bestRecovery, bestSleep, topWorkout,
+}: {
+  bestRecovery: number | null
+  bestSleep: number | null
+  topWorkout: WhoopWorkout | null
+}) {
+  return (
+    <div className="mx-4 mt-3 bg-surface rounded-2xl p-4">
+      <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium">🏆 Seus recordes</p>
+      <div className="flex flex-col gap-2">
+        {bestRecovery != null && (
+          <RecordRow
+            icon="💚"
+            label="Melhor recuperação"
+            value={`${Math.round(bestRecovery)}%`}
+            color={recoveryColor(bestRecovery)}
+          />
+        )}
+        {bestSleep != null && (
+          <RecordRow
+            icon="💜"
+            label="Melhor sono"
+            value={`${Math.round(bestSleep)}%`}
+            color="#9C59D1"
+          />
+        )}
+        {topWorkout != null && topWorkout.strain != null && (
+          <RecordRow
+            icon="⚡"
+            label={`Treino mais intenso — ${sportName(topWorkout.sport_id)}`}
+            value={`${topWorkout.strain.toFixed(1)} esforço`}
+            color={strainColor(topWorkout.strain)}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RecordRow({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
+  return (
+    <div className="flex items-center justify-between bg-surface-2 rounded-xl px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-base">{icon}</span>
+        <span className="text-xs text-gray-400">{label}</span>
+      </div>
+      <span className="text-sm font-bold" style={{ color }}>{value}</span>
     </div>
   )
 }

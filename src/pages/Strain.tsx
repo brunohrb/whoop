@@ -139,6 +139,37 @@ export default function Strain() {
               <p className="text-gray-600 text-xs mt-1">Registre atividades no app WHOOP</p>
             </div>
           )}
+
+          {/* Treinos recentes — últimos 7 dias excluindo o dia selecionado */}
+          {dayIndex === 0 && (() => {
+            const todayStart = latestCycle ? new Date(latestCycle.start_time).getTime() : 0
+            const recentOther = recentWorkouts.filter(w => new Date(w.start_time).getTime() < todayStart).slice(0, 8)
+            if (recentOther.length === 0) return null
+            return (
+              <div className="px-4 mt-4">
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-3 font-medium px-1">Treinos recentes</p>
+                <div className="flex flex-col gap-2">
+                  {recentOther.map(w => (
+                    <div key={w.id} className="bg-surface rounded-xl px-3 py-2.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">{sportName(w.sport_id)}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(w.start_time).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {' · '}{workoutDuration(w.start_time, w.end_time)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-bold" style={{ color: strainColor(w.strain) }}>
+                          {w.strain?.toFixed(1) ?? '--'}
+                        </p>
+                        <p className="text-[10px] text-gray-500">{kcalFromKj(w.kilojoule) || '--'} kcal</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </>
       )}
     </div>
