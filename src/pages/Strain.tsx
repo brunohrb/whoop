@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWhoopData } from '../hooks/useWhoopData'
 import { useSync } from '../hooks/useSync'
 import PageHeader from '../components/PageHeader'
@@ -20,6 +21,7 @@ export default function Strain() {
   const { recentCycles, recentWorkouts, whoopConnected, loading, refresh } = useWhoopData()
   const { sync, syncing } = useSync(refresh)
   const [dayIndex, setDayIndex] = useState(0)
+  const navigate = useNavigate()
 
   if (loading) return <LoadingScreen />
 
@@ -170,6 +172,12 @@ export default function Strain() {
               </div>
             )
           })()}
+          <button
+            onClick={() => navigate('/ia?q=' + encodeURIComponent('Como foi meu esforço hoje? Analise meu strain, treinos e zonas de FC.'))}
+            className="mx-4 mt-3 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 bg-surface border border-whoop-green/20 rounded-2xl py-3 text-sm text-whoop-green font-medium active:scale-95 transition-transform"
+          >
+            🤖 Perguntar ao Coach
+          </button>
         </>
       )}
     </div>

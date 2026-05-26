@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
@@ -21,12 +22,24 @@ export default function AIAnalysis() {
   const [error, setError] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const autoSentRef = useRef(false)
+  const location = useLocation()
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  useEffect(() => {
+    if (autoSentRef.current) return
+    const q = new URLSearchParams(location.search).get('q')
+    if (q) {
+      autoSentRef.current = true
+      send(q)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function send(text?: string) {
     const msg = (text ?? input).trim()
