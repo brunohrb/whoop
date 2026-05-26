@@ -54,7 +54,7 @@ function mergeState(raw: unknown): TreinoState {
     parsed.exercises = {}
   }
   for (const k of Object.keys(base) as (keyof TreinoState)[]) {
-    if (parsed[k] === undefined) parsed[k] = base[k as string] as unknown
+    if (parsed[k] === undefined) parsed[k] = base[k] as unknown
   }
   const state = parsed as unknown as TreinoState
   if (state.date !== todayKey()) {
