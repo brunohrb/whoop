@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { SPLITS, WORKOUTS, buscarVideoId, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
 
@@ -44,30 +45,33 @@ function defaultState(): TreinoState {
   }
 }
 
-function loadState(): TreinoState {
+function mergeState(raw: unknown): TreinoState {
+  const base = defaultState()
+  const parsed = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  if (parsed.cursor === undefined || parsed.completedCount === undefined) {
+    parsed.cursor = 0
+    parsed.completedCount = 0
+    parsed.exercises = {}
+  }
+  for (const k of Object.keys(base) as (keyof TreinoState)[]) {
+    if (parsed[k] === undefined) parsed[k] = base[k as string] as unknown
+  }
+  const state = parsed as unknown as TreinoState
+  if (state.date !== todayKey()) {
+    if (state.fastToday) state.fastDays[state.date] = true
+    state.date = todayKey()
+    state.exercises = {}
+    state.meals = {}
+    state.fastToday = false
+  }
+  return state
+}
+
+function loadLocalState(): TreinoState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return defaultState()
-    const parsed = JSON.parse(raw) as TreinoState
-    if (parsed.cursor === undefined || parsed.completedCount === undefined) {
-      parsed.cursor = 0
-      parsed.completedCount = 0
-      parsed.exercises = {}
-    }
-    const base = defaultState()
-    for (const k of Object.keys(base) as (keyof TreinoState)[]) {
-      if ((parsed as unknown as Record<string, unknown>)[k] === undefined) {
-        (parsed as unknown as Record<string, unknown>)[k] = (base as unknown as Record<string, unknown>)[k]
-      }
-    }
-    if (parsed.date !== todayKey()) {
-      if (parsed.fastToday) parsed.fastDays[parsed.date] = true
-      parsed.date = todayKey()
-      parsed.exercises = {}
-      parsed.meals = {}
-      parsed.fastToday = false
-    }
-    return parsed
+    return mergeState(JSON.parse(raw))
   } catch {
     return defaultState()
   }
@@ -121,19 +125,61 @@ function createBeeps(audioCtx: AudioContext, secondsFromNow: number) {
   })
 }
 
+// ── Supabase sync (debounced) ────────────────────────────────────────
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+
+async function syncToSupabase(state: TreinoState) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.schema('treino').from('bhr_treinos').upsert(
+    { user_id: user.id, record_content: state, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  )
+}
+
+function scheduleSyncToSupabase(state: TreinoState) {
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => syncToSupabase(state), 1500)
+}
+
 export default function Treino() {
   const [activeTab, setActiveTab] = useState<TreinoTab>('treino')
-  const [state, setStateRaw] = useState<TreinoState>(() => loadState())
+  const [state, setStateRaw] = useState<TreinoState>(() => loadLocalState())
+  const [syncing, setSyncing] = useState(true)
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setSyncing(false); return }
+      const { data } = await supabase.schema('treino').from('bhr_treinos')
+        .select('record_content').eq('user_id', user.id).maybeSingle()
+      if (data?.record_content) {
+        const loaded = mergeState(data.record_content)
+        setStateRaw(loaded)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded))
+      }
+      setSyncing(false)
+    })
+  }, [])
 
   const setState = useCallback((updater: (prev: TreinoState) => TreinoState) => {
     setStateRaw(prev => {
       const next = updater(prev)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      scheduleSyncToSupabase(next)
       return next
     })
   }, [])
 
   const deload = isDeload(state.completedCount)
+
+  if (syncing) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div className="w-6 h-6 border-2 border-whoop-green border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="pb-8 flex flex-col h-full">
