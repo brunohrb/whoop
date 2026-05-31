@@ -3,7 +3,15 @@ import { supabase } from '../lib/supabase'
 import { SPLITS, WORKOUTS, buscarVideoId, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
 
-type TreinoTab = 'treino' | 'dieta'
+type TreinoTab = 'treino' | 'dieta' | 'readiness'
+
+interface ReadinessDay {
+  sleep: number
+  energy: number
+  soreness: number
+  mood: number
+  score: number
+}
 
 interface TreinoState {
   date: string
@@ -15,7 +23,7 @@ interface TreinoState {
   mealChoice: Record<string, number>
   fastToday: boolean
   fastDays: Record<string, boolean>
-  readiness: Record<string, unknown>
+  readiness: Record<string, ReadinessDay>
   restDayToday: string
   skipNextRest: boolean
 }
@@ -184,7 +192,11 @@ export default function Treino() {
   return (
     <div className="pb-8 flex flex-col h-full">
       <div className="flex border-b border-white/10 bg-black sticky top-0 z-10">
-        {(['treino', 'dieta'] as TreinoTab[]).map(t => (
+        {([
+          ['treino', 'Treino'],
+          ['dieta', 'Dieta'],
+          ['readiness', 'Prontidão'],
+        ] as [TreinoTab, string][]).map(([t, label]) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -192,7 +204,7 @@ export default function Treino() {
               activeTab === t ? 'text-whoop-green border-b-2 border-whoop-green' : 'text-gray-500'
             }`}
           >
-            {t === 'treino' ? 'Treino' : 'Dieta'}
+            {label}
           </button>
         ))}
       </div>
@@ -200,6 +212,7 @@ export default function Treino() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'treino' && <WorkoutTab state={state} setState={setState} deload={deload} />}
         {activeTab === 'dieta' && <DietaTab state={state} setState={setState} />}
+        {activeTab === 'readiness' && <ReadinessTab state={state} setState={setState} />}
       </div>
     </div>
   )
@@ -631,6 +644,115 @@ function DietaTab({
           <div><p className="text-lg font-bold">{totals.p}</p><p className="text-[10px] text-gray-500">prot</p></div>
           <div><p className="text-lg font-bold">{totals.c}</p><p className="text-[10px] text-gray-500">carb</p></div>
           <div><p className="text-lg font-bold">{totals.g}</p><p className="text-[10px] text-gray-500">gord</p></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Readiness ────────────────────────────────────────────────────────────────
+
+function computeReadinessScore(r: { sleep: number; energy: number; soreness: number; mood: number }): number {
+  const s = r.sleep * 1.5 + r.energy * 1.5 + (6 - r.soreness) * 1.0 + r.mood * 1.0
+  return Math.round((s - 5) * 5)
+}
+
+function readinessInfo(score: number) {
+  if (score >= 80) return { level: 'ALTA', colorClass: 'text-whoop-green', advice: 'Corpo pronto. Treine forte — pode tentar PR hoje.' }
+  if (score >= 60) return { level: 'BOA', colorClass: 'text-[#9BD200]', advice: 'Treino normal conforme plano.' }
+  if (score >= 40) return { level: 'MÉDIA', colorClass: 'text-whoop-yellow', advice: 'Reduza carga 10–15%. Mantenha séries.' }
+  return { level: 'BAIXA', colorClass: 'text-whoop-red', advice: 'Treino leve ou off — ouvir o corpo não é fraqueza.' }
+}
+
+const RD_SLIDERS = [
+  { key: 'sleep'    as const, label: 'Sono',          hint: 'Horas · profundidade', low: 'Péssimo', high: 'Ótimo'     },
+  { key: 'energy'   as const, label: 'Energia',        hint: 'Disposição geral',     low: 'Esgotado', high: 'De pilha' },
+  { key: 'soreness' as const, label: 'Dor muscular',   hint: 'DOMS do treino anterior', low: 'Sem dor', high: 'Muita dor' },
+  { key: 'mood'     as const, label: 'Humor',          hint: 'Vontade de treinar',   low: 'Péssimo', high: 'Ótimo'     },
+]
+
+function ReadinessTab({
+  state,
+  setState,
+}: {
+  state: TreinoState
+  setState: (u: (p: TreinoState) => TreinoState) => void
+}) {
+  const DEFAULT_RD = { sleep: 3, energy: 3, soreness: 3, mood: 3, score: 50 }
+  const rd = state.readiness[todayKey()] ?? DEFAULT_RD
+  const hasData = !!state.readiness[todayKey()]
+  const info = hasData ? readinessInfo(rd.score) : null
+
+  function updateSlider(key: keyof Omit<ReadinessDay, 'score'>, val: number) {
+    setState(prev => {
+      const current = prev.readiness[todayKey()] ?? { ...DEFAULT_RD }
+      const updated = { ...current, [key]: val }
+      updated.score = computeReadinessScore(updated)
+      return { ...prev, readiness: { ...prev.readiness, [todayKey()]: updated } }
+    })
+  }
+
+  return (
+    <div className="px-4 py-3">
+      {/* Score hero */}
+      <div className="bg-surface rounded-2xl p-5 mb-3 text-center">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Prontidão Hoje</p>
+        <p className={`text-8xl font-bold tabular-nums leading-none ${info ? info.colorClass : 'text-gray-600'}`}>
+          {hasData ? rd.score : '—'}
+        </p>
+        {info ? (
+          <>
+            <p className={`text-sm font-bold mt-2 ${info.colorClass}`}>{info.level}</p>
+            <p className="text-xs text-gray-400 mt-1 leading-relaxed">{info.advice}</p>
+          </>
+        ) : (
+          <p className="text-xs text-gray-500 mt-2">Preencha os sliders abaixo</p>
+        )}
+      </div>
+
+      {/* Sliders */}
+      <div className="flex flex-col gap-2 mb-3">
+        {RD_SLIDERS.map(({ key, label, hint, low, high }) => (
+          <div key={key} className="bg-surface rounded-2xl px-4 py-3">
+            <div className="flex justify-between items-baseline mb-2">
+              <div>
+                <p className="text-sm font-semibold">{label}</p>
+                <p className="text-[10px] text-gray-500">{hint}</p>
+              </div>
+              <span className="text-2xl font-bold text-whoop-green tabular-nums">{rd[key]}</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={rd[key]}
+              onChange={e => updateSlider(key, +e.target.value)}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[9px] text-gray-600 mt-1">
+              <span>1 · {low}</span>
+              <span>5 · {high}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Guide */}
+      <div className="bg-surface rounded-2xl p-4">
+        <p className="text-[10px] text-gray-400 uppercase font-semibold mb-3">Guia</p>
+        <div className="flex flex-col gap-2">
+          {[
+            { range: '80+',   cls: 'text-whoop-green',  text: 'Corpo pronto — tente progressão de carga ou PR' },
+            { range: '60–79', cls: 'text-[#9BD200]',    text: 'Treino normal conforme o plano' },
+            { range: '40–59', cls: 'text-whoop-yellow', text: 'Reduza carga 10–15%, mantenha séries' },
+            { range: '<40',   cls: 'text-whoop-red',    text: 'Treino leve ou off — ouvir o corpo é maturidade' },
+          ].map(({ range, cls, text }) => (
+            <div key={range} className="flex items-start gap-3 text-xs">
+              <span className={`font-bold w-12 flex-shrink-0 ${cls}`}>{range}</span>
+              <span className="text-gray-400">{text}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
