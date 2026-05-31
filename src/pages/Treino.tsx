@@ -407,19 +407,21 @@ function CoachCard({
             </button>
           )}
 
-          {!isRestDay && rec.score < 55 && (
+          {!isRestDay && (
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Adaptar treino</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">
+                Ajustar volume do treino
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  ['none',     'Normal',         'text-white',        adaptLevel === 'none'],
-                  ['moderate', '−25% volume',    'text-whoop-yellow', adaptLevel === 'moderate'],
-                  ['heavy',    '−50% volume',    'text-whoop-red',    adaptLevel === 'heavy'],
+                  ['none',     'Normal',      'text-white',        adaptLevel === 'none'],
+                  ['moderate', '−25%',        'text-whoop-yellow', adaptLevel === 'moderate'],
+                  ['heavy',    '−50%',        'text-whoop-red',    adaptLevel === 'heavy'],
                 ] as const).map(([level, label, color, active]) => (
                   <button
                     key={level}
                     onClick={() => onAdapt(level)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-colors ${
+                    className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${
                       active ? `border-current ${color} bg-white/10` : 'border-white/20 text-gray-500'
                     } ${color}`}
                   >
@@ -427,13 +429,17 @@ function CoachCard({
                   </button>
                 ))}
               </div>
-              {adaptLevel !== 'none' && (
+              {adaptLevel !== 'none' ? (
                 <p className="text-[10px] text-gray-400">
                   {adaptLevel === 'moderate'
-                    ? '📉 Séries e reps reduzidas ~25%. Ex: 4×12 → 3×10'
-                    : '📉 Séries e reps reduzidas ~50%. Ex: 4×12 → 2×8'}
+                    ? '📉 Volume −25%. Ex: 4×12 → 3×10'
+                    : '📉 Volume −50%. Ex: 4×12 → 2×8'}
                 </p>
-              )}
+              ) : rec.score < 55 ? (
+                <p className="text-[10px] text-yellow-500">
+                  ⚠️ Recuperação baixa — considere reduzir o volume
+                </p>
+              ) : null}
             </div>
           )}
 
