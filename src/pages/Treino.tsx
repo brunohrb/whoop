@@ -108,6 +108,23 @@ function applyDeload(sets: string, deload: boolean): string {
   return `${Math.max(2, Math.ceil(parseInt(m[1]) / 2))}x${m[2]}`
 }
 
+type AdaptLevel = 'none' | 'moderate' | 'heavy'
+
+function applyAdaptation(sets: string, level: AdaptLevel): string {
+  if (level === 'none') return sets
+  const m = sets.match(/^(\d+)x(\d+)(.*)$/)
+  if (!m) return sets
+  const s = parseInt(m[1])
+  const r = parseInt(m[2])
+  const rest = m[3]
+  if (level === 'moderate') {
+    // ~25% reduction: 4x12 → 3x10
+    return `${Math.max(2, Math.round(s * 0.75))}x${Math.max(6, Math.round(r * 0.83))}${rest}`
+  }
+  // 'heavy' ~50%: 4x12 → 2x8
+  return `${Math.max(2, Math.ceil(s / 2))}x${Math.max(5, Math.round(r * 0.67))}${rest}`
+}
+
 function createBeeps(audioCtx: AudioContext, secondsFromNow: number) {
   const tones = [
     { freq: 880, dur: 0.18, gain: 0.55, delay: 0.0 },
@@ -270,62 +287,108 @@ function CoachCard({
   recovery,
   sleep,
   readiness,
+  isRestDay,
+  workoutTitle,
+  adaptLevel,
+  onAdapt,
+  onSkipRest,
+  onPullRestForward,
 }: {
   recovery: WhoopRecovery | null
   sleep: WhoopSleep | null
   readiness: ReadinessDay | null
+  isRestDay: boolean
+  workoutTitle: string
+  adaptLevel: AdaptLevel
+  onAdapt: (l: AdaptLevel) => void
+  onSkipRest: () => void
+  onPullRestForward: () => void
 }) {
   const [open, setOpen] = useState(false)
 
-  const whoopScore   = recovery?.recovery_score   ?? null
-  const sleepPerf    = sleep?.sleep_performance_percentage ?? null
-  const subjective   = readiness?.score ?? null
-  const hrv          = recovery?.hrv_rmssd_milli  ?? null
-  const rhr          = recovery?.resting_heart_rate ?? null
+  const whoopScore = recovery?.recovery_score              ?? null
+  const sleepPerf  = sleep?.sleep_performance_percentage   ?? null
+  const subjective = readiness?.score                      ?? null
+  const hrv        = recovery?.hrv_rmssd_milli             ?? null
+  const rhr        = recovery?.resting_heart_rate          ?? null
 
   const rec = coachRecommendation(whoopScore, sleepPerf, subjective)
 
+  // No data at all
   if (!rec) {
     return (
       <div className="bg-surface rounded-2xl px-4 py-3 mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Coach do Dia</p>
-          <p className="text-[10px] text-gray-600 mt-0.5">Conecte o WHOOP ou preencha Prontidão</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">Conecte o WHOOP ou preencha a aba Prontidão</p>
         </div>
-        <span className="text-2xl">🤖</span>
+        <span className="text-xl">🤖</span>
       </div>
     )
   }
 
+  // ── Context-aware label ──────────────────────────────────────────────────
+  let contextLabel = rec.label
+  let contextAdvice = rec.advice
+  let contextEmoji = rec.emoji
+
+  if (isRestDay) {
+    if (rec.score >= 75) {
+      contextEmoji  = '💪'
+      contextLabel  = 'Dia de descanso — mas você está ótimo'
+      contextAdvice = `Recuperação excelente (${rec.score}) num dia de OFF. Se quiser, pule o descanso e treine hoje.`
+    } else {
+      contextEmoji  = '😴'
+      contextLabel  = 'Descanse — seu corpo está pedindo'
+      contextAdvice = `Recuperação ${rec.score}/100 confirma que hoje é dia de descanso. Aproveite para recuperar.`
+    }
+  } else {
+    // training day
+    if (rec.score < 35) {
+      contextEmoji  = '⚠️'
+      contextLabel  = `${workoutTitle} — recuperação muito baixa`
+      contextAdvice = `Recuperação ${rec.score}/100. Não é o momento ideal para ${workoutTitle}. Considere antecipar o próximo descanso ou adaptar o treino.`
+    } else if (rec.score < 55) {
+      contextLabel  = `${workoutTitle} — reduzir carga`
+      contextAdvice = `Recuperação ${rec.score}/100. Faça ${workoutTitle} mas reduza o volume. As séries/reps serão ajustadas automaticamente.`
+    } else if (rec.score < 75) {
+      contextLabel  = `${workoutTitle} — treino normal`
+      contextAdvice = `Recuperação ${rec.score}/100. Siga o plano de ${workoutTitle} normalmente.`
+    } else {
+      contextLabel  = `${workoutTitle} — pode ir com tudo`
+      contextAdvice = `Recuperação ${rec.score}/100. Ótimo dia para ${workoutTitle}. Tente progressão de carga.`
+    }
+  }
+
+  const signals = [
+    { label: 'Recovery WHOOP', value: whoopScore !== null ? `${whoopScore}%`        : '—', sub: 'objetivo'      },
+    { label: 'Sono WHOOP',     value: sleepPerf  !== null ? `${sleepPerf}%`         : '—', sub: 'performance'   },
+    { label: 'Prontidão',      value: subjective !== null ? `${subjective}`          : '—', sub: 'subjetivo'     },
+    { label: 'HRV',            value: hrv        !== null ? `${Math.round(hrv)}ms`  : '—', sub: 'variabilidade' },
+    { label: 'FC Repouso',     value: rhr        !== null ? `${rhr}bpm`             : '—', sub: 'basal'         },
+  ]
+
   return (
     <div className={`rounded-2xl mb-3 border ${rec.border} ${rec.bg} overflow-hidden`}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full px-4 py-3 flex items-center justify-between"
-      >
-        <div className="text-left">
+      {/* Header */}
+      <button onClick={() => setOpen(o => !o)} className="w-full px-4 py-3 flex items-center justify-between text-left">
+        <div>
           <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Coach do Dia</p>
-          <p className={`text-sm font-bold mt-0.5 ${rec.color}`}>{rec.emoji} {rec.label}</p>
+          <p className={`text-sm font-bold mt-0.5 ${rec.color}`}>{contextEmoji} {contextLabel}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-2xl font-bold tabular-nums ${rec.color}`}>{rec.score}</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xl font-bold tabular-nums ${rec.color}`}>{rec.score}</span>
           <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
         </div>
       </button>
 
       {open && (
         <div className="px-4 pb-4 flex flex-col gap-3">
-          <p className="text-xs text-gray-300 leading-relaxed">{rec.advice}</p>
+          <p className="text-xs text-gray-300 leading-relaxed">{contextAdvice}</p>
 
           {/* Sinais */}
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'WHOOP Recovery', value: whoopScore !== null ? `${whoopScore}%` : '—', sub: 'objetivo' },
-              { label: 'Sono WHOOP',     value: sleepPerf  !== null ? `${sleepPerf}%`  : '—', sub: 'performance' },
-              { label: 'Prontidão',      value: subjective !== null ? `${subjective}`   : '—', sub: 'subjetivo' },
-              { label: 'HRV',            value: hrv !== null ? `${Math.round(hrv)}ms` : '—', sub: 'variabilidade' },
-              { label: 'FC Repouso',     value: rhr !== null ? `${rhr}bpm` : '—',             sub: 'basal' },
-            ].map(s => (
+            {signals.map(s => (
               <div key={s.label} className="bg-black/30 rounded-xl px-3 py-2">
                 <p className="text-[9px] text-gray-500 uppercase tracking-wide">{s.label}</p>
                 <p className="text-sm font-bold text-white mt-0.5">{s.value}</p>
@@ -334,14 +397,53 @@ function CoachCard({
             ))}
           </div>
 
-          {/* Dica de carga */}
-          {rec.score < 55 && (
-            <div className="bg-black/30 rounded-xl px-3 py-2.5 text-xs text-gray-300">
-              💡 <span className="font-semibold">Dica:</span>{' '}
-              {rec.score < 35
-                ? 'Considere substituir o treino por alongamento ou mobilidade de 20 min.'
-                : 'Reduza o peso em relação à última sessão. Séries e repetições mantidas.'}
+          {/* ── Ações contextuais ── */}
+          {isRestDay && rec.score >= 75 && (
+            <button
+              onClick={() => { onSkipRest(); setOpen(false) }}
+              className="w-full py-2.5 rounded-xl bg-whoop-green text-black text-xs font-bold"
+            >
+              💪 Pular descanso e treinar hoje
+            </button>
+          )}
+
+          {!isRestDay && rec.score < 55 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Adaptar treino</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['none',     'Normal',         'text-white',        adaptLevel === 'none'],
+                  ['moderate', '−25% volume',    'text-whoop-yellow', adaptLevel === 'moderate'],
+                  ['heavy',    '−50% volume',    'text-whoop-red',    adaptLevel === 'heavy'],
+                ] as const).map(([level, label, color, active]) => (
+                  <button
+                    key={level}
+                    onClick={() => onAdapt(level)}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      active ? `border-current ${color} bg-white/10` : 'border-white/20 text-gray-500'
+                    } ${color}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {adaptLevel !== 'none' && (
+                <p className="text-[10px] text-gray-400">
+                  {adaptLevel === 'moderate'
+                    ? '📉 Séries e reps reduzidas ~25%. Ex: 4×12 → 3×10'
+                    : '📉 Séries e reps reduzidas ~50%. Ex: 4×12 → 2×8'}
+                </p>
+              )}
             </div>
+          )}
+
+          {!isRestDay && rec.score < 35 && (
+            <button
+              onClick={() => { onPullRestForward(); setOpen(false) }}
+              className="w-full py-2.5 rounded-xl border border-whoop-red/40 text-whoop-red text-xs font-bold"
+            >
+              😴 Antecipar descanso — treinar amanhã
+            </button>
           )}
         </div>
       )}
@@ -371,6 +473,7 @@ function WorkoutTab({
   const [chronoSec, setChronoSec] = useState(0)
   const [chronoRunning, setChronoRunning] = useState(false)
   const chronoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [adaptLevel, setAdaptLevel] = useState<AdaptLevel>('none')
 
   const split = SPLITS[state.split]
   const dayData = split[state.cursor]
@@ -490,9 +593,24 @@ function WorkoutTab({
 
   const todayReadiness = state.readiness[todayKey()] ?? null
 
+  function pullRestForward() {
+    if (!confirm('Antecipar o descanso para hoje?\nO próximo OFF da fila será consumido.')) return
+    setState(prev => ({ ...prev, restDayToday: todayKey(), skipNextRest: true }))
+  }
+
   return (
     <div className="px-4 py-3">
-      <CoachCard recovery={latestRecovery} sleep={latestSleep} readiness={todayReadiness} />
+      <CoachCard
+        recovery={latestRecovery}
+        sleep={latestSleep}
+        readiness={todayReadiness}
+        isRestDay={!!workout.rest}
+        workoutTitle={workout.title ?? dayData.focus}
+        adaptLevel={adaptLevel}
+        onAdapt={setAdaptLevel}
+        onSkipRest={advanceSession}
+        onPullRestForward={pullRestForward}
+      />
 
       {activeRest && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4" onClick={cancelRest}>
@@ -583,11 +701,17 @@ function WorkoutTab({
               </div>
             </div>
 
+            {adaptLevel !== 'none' && (
+              <div className="mb-2 px-1 text-[10px] text-whoop-yellow">
+                ⚡ Treino adaptado pelo Coach ({adaptLevel === 'moderate' ? '−25% volume' : '−50% volume'})
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               {workout.exercises.map((ex, i) => {
                 const key = `${dayData.key}-${i}`
                 const done = !!state.exercises[key]
-                const adjustedSets = applyDeload(ex.sets, deload)
+                const adjustedSets = applyAdaptation(applyDeload(ex.sets, deload), adaptLevel)
                 const videoId = buscarVideoId(ex.name)
                 const restSec = parseDescanso(ex.detail)
                 const isRestRunning = activeRest === key
