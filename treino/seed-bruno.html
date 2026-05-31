@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BHR Saúde · Importar histórico</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-elev: #141414;
+  --bg-card: #1a1a1a;
+  --ink: #f5f5f0;
+  --ink-dim: #8a8a85;
+  --accent: #ff2d2d;
+  --line: #2a2a2a;
+  --success: #00d97e;
+  --warn: #ffb020;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  padding: 40px 20px;
+  min-height: 100vh;
+}
+.container { max-width: 640px; margin: 0 auto; }
+h1 { font-size: 32px; letter-spacing: 0.02em; margin-bottom: 8px; }
+h1 span { color: var(--accent); }
+.subtitle { color: var(--ink-dim); margin-bottom: 30px; font-size: 14px; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card h3 { color: var(--accent); margin-bottom: 10px; font-size: 16px; letter-spacing: 0.05em; }
+.card input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 14px 16px;
+  border-radius: 2px;
+  font-size: 16px;
+  margin-bottom: 10px;
+  -webkit-appearance: none;
+}
+.card input:focus { outline: none; border-color: var(--accent); }
+.btn {
+  width: 100%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 16px;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.secondary { background: transparent; border: 1px solid var(--line); color: var(--ink-dim); }
+.status { padding: 14px 16px; border-radius: 2px; margin-top: 12px; font-size: 14px; line-height: 1.6; }
+.status.info { background: rgba(255,176,32,0.15); color: var(--warn); border-left: 3px solid var(--warn); }
+.status.ok { background: rgba(0,217,126,0.15); color: var(--success); border-left: 3px solid var(--success); }
+.status.error { background: rgba(255,45,45,0.15); color: var(--accent); border-left: 3px solid var(--accent); }
+.data-summary { font-size: 13px; color: var(--ink-dim); line-height: 1.7; }
+.data-summary strong { color: var(--ink); }
+.back-link { display: inline-block; margin-top: 24px; color: var(--ink-dim); font-size: 13px; text-decoration: none; }
+.back-link:hover { color: var(--accent); }
+.progress { margin-top: 10px; font-family: monospace; font-size: 12px; color: var(--ink-dim); white-space: pre-wrap; max-height: 240px; overflow-y: auto; background: var(--bg); padding: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>IMPORTAR HISTÓRICO<span>.</span></h1>
+  <p class="subtitle">Carrega todas as bioimpedâncias + exames dos PDFs direto pro Supabase (sem gastar crédito Claude)</p>
+
+  <div class="card">
+    <h3>DADOS A IMPORTAR</h3>
+    <div class="data-summary">
+      <strong>Bioimpedância</strong> — 8 medições (18/11/2024 → 11/02/2026)<br>
+      <strong>Exames de sangue</strong> — 9 checkpoints (21/09/2020 → 05/01/2026)<br>
+      <strong>34 marcadores rastreados</strong> — colesterol, LDL, HDL, triglicérides, glicose, HbA1c, testosterona, TSH, T4L, vit D, B12, TGO, TGP, creatinina, hemoglobina e mais
+    </div>
+  </div>
+
+  <div class="card" id="loginCard">
+    <h3>1. LOGIN</h3>
+    <input type="text" id="nome" placeholder="Nome (mesmo do app)" autocomplete="username">
+    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
+    <button class="btn" id="btnEntrar">ENTRAR</button>
+  </div>
+
+  <div class="card" id="importCard" style="display:none;">
+    <h3>2. IMPORTAR</h3>
+    <p class="data-summary">Logado como <strong id="logadoNome"></strong>. Clica abaixo — os dados substituem o que já existe nas tabelas <code>bhr_bio</code> e <code>bhr_exames</code> (upsert).</p>
+    <button class="btn" id="btnImportar" style="margin-top:14px;">IMPORTAR TUDO AGORA</button>
+    <button class="btn secondary" id="btnSair" style="margin-top:8px;">SAIR</button>
+  </div>
+
+  <div id="status"></div>
+  <div class="progress" id="progress" style="display:none;"></div>
+
+  <a href="./" class="back-link">← Voltar pro BHR Saúde</a>
+</div>
+
+<script src="seed-bruno-data.js"></script>
+<script>
+const SUPABASE_URL = 'https://hisbbtddpoxufvghxqtm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpc2JidGRkcG94dWZ2Z2h4cXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDM0OTgsImV4cCI6MjA4Nzc3OTQ5OH0.r3VkLkBxeorkCYjB-y6WOchePdfRKsm5lWE1iSSYlrw';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'treino' } });
+
+let userId = null;
+
+function nomeParaEmail(n) {
+  const limpo = (n || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+  return limpo ? `${limpo}@bhr.treino` : '';
+}
+
+function setStatus(txt, cls) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + (cls || 'info');
+  el.textContent = txt;
+}
+
+function logProgress(txt) {
+  const el = document.getElementById('progress');
+  el.style.display = 'block';
+  el.textContent += txt + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function restoreSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    userId = session.user.id;
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('importCard').style.display = 'block';
+    document.getElementById('logadoNome').textContent = (session.user.email || '').replace('@bhr.treino', '');
+  }
+}
+restoreSession();
+
+document.getElementById('btnEntrar').onclick = async () => {
+  const nome = document.getElementById('nome').value.trim();
+  const senha = document.getElementById('senha').value;
+  const email = nomeParaEmail(nome);
+  if (!email || !senha) { setStatus('Preencha nome e senha', 'error'); return; }
+  setStatus('Entrando...', 'info');
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+    if (error) { setStatus('Erro: ' + error.message, 'error'); return; }
+    userId = data.user.id;
+    setStatus('Logado!', 'ok');
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('importCard').style.display = 'block';
+    document.getElementById('logadoNome').textContent = nome.toUpperCase();
+  } catch (e) { setStatus('Falha: ' + e.message, 'error'); }
+};
+
+document.getElementById('btnSair').onclick = async () => {
+  await sb.auth.signOut();
+  userId = null;
+  document.getElementById('importCard').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'block';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = '';
+  document.getElementById('progress').style.display = 'none';
+  document.getElementById('progress').textContent = '';
+};
+
+document.getElementById('btnImportar').onclick = async () => {
+  if (!userId) { setStatus('Faça login primeiro', 'error'); return; }
+  if (!confirm('Isso vai SUBSTITUIR os dados atuais de bio e exames no Supabase pela versão dos PDFs. Continuar?')) return;
+  document.getElementById('btnImportar').disabled = true;
+  document.getElementById('btnSair').disabled = true;
+  setStatus('Importando... não fecha a aba', 'info');
+  logProgress('>>> Iniciando import como user_id=' + userId);
+
+  try {
+    logProgress('[1/2] Subindo ' + BIO_HISTORICO.length + ' medições de bioimpedância...');
+    const { error: bioErr } = await sb.from('bhr_bio').upsert({
+      user_id: userId,
+      record_content: BIO_HISTORICO,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    if (bioErr) throw new Error('bhr_bio: ' + bioErr.message);
+    logProgress('✓ Bio OK');
+
+    logProgress('[2/2] Subindo ' + EXAMES_HISTORICO.length + ' exames de sangue...');
+    const { error: exErr } = await sb.from('bhr_exames').upsert({
+      user_id: userId,
+      record_content: EXAMES_HISTORICO,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    if (exErr) throw new Error('bhr_exames: ' + exErr.message);
+    logProgress('✓ Exames OK');
+
+    logProgress('');
+    logProgress('=== IMPORT COMPLETO ===');
+    logProgress(BIO_HISTORICO.length + ' bioimpedâncias e ' + EXAMES_HISTORICO.length + ' exames importados.');
+    logProgress('Abra /bhr-saude/ pra ver os gráficos e indicadores.');
+    setStatus('✓ Import concluído! Abra o app pra ver o histórico.', 'ok');
+  } catch (e) {
+    logProgress('!!! ERRO: ' + e.message);
+    setStatus('Erro: ' + e.message, 'error');
+    document.getElementById('btnImportar').disabled = false;
+    document.getElementById('btnSair').disabled = false;
+  }
+};
+</script>
+</body>
+</html>
