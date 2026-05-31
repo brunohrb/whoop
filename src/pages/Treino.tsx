@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { SPLITS, WORKOUTS, buscarVideoId, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
 
-type TreinoTab = 'treino' | 'dieta' | 'readiness'
+type TreinoTab = 'treino' | 'dieta' | 'readiness' | 'timer' | 'stats'
 
 interface ReadinessDay {
   sleep: number
@@ -191,16 +191,18 @@ export default function Treino() {
 
   return (
     <div className="pb-8 flex flex-col h-full">
-      <div className="flex border-b border-white/10 bg-black sticky top-0 z-10">
+      <div className="flex border-b border-white/10 bg-black sticky top-0 z-10 overflow-x-auto">
         {([
-          ['treino', 'Treino'],
-          ['dieta', 'Dieta'],
+          ['treino',    'Treino'],
+          ['dieta',     'Dieta'],
           ['readiness', 'Prontidão'],
+          ['timer',     'Timer'],
+          ['stats',     'Stats'],
         ] as [TreinoTab, string][]).map(([t, label]) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
+            className={`flex-shrink-0 flex-1 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
               activeTab === t ? 'text-whoop-green border-b-2 border-whoop-green' : 'text-gray-500'
             }`}
           >
@@ -210,9 +212,11 @@ export default function Treino() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'treino' && <WorkoutTab state={state} setState={setState} deload={deload} />}
-        {activeTab === 'dieta' && <DietaTab state={state} setState={setState} />}
+        {activeTab === 'treino'    && <WorkoutTab state={state} setState={setState} deload={deload} />}
+        {activeTab === 'dieta'     && <DietaTab state={state} setState={setState} />}
         {activeTab === 'readiness' && <ReadinessTab state={state} setState={setState} />}
+        {activeTab === 'timer'     && <TimerTab />}
+        {activeTab === 'stats'     && <StatsTab state={state} setState={setState} />}
       </div>
     </div>
   )
@@ -755,6 +759,263 @@ function ReadinessTab({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+
+const TIMER_PRESETS = [
+  { label: '45s',  secs: 45  },
+  { label: '1min', secs: 60  },
+  { label: '90s',  secs: 90  },
+  { label: '2min', secs: 120 },
+  { label: '3min', secs: 180 },
+]
+
+function TimerTab() {
+  const [total,     setTotal]     = useState(60)
+  const [remaining, setRemaining] = useState(60)
+  const [running,   setRunning]   = useState(false)
+  const endRef      = useRef(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+
+  function initAudio() {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      try { audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)() } catch {}
+    }
+  }
+
+  function beep(ctx: AudioContext) {
+    const tones = [
+      { freq: 880,  dur: 0.18, gain: 0.55, delay: 0.0  },
+      { freq: 1100, dur: 0.18, gain: 0.65, delay: 0.22 },
+      { freq: 1320, dur: 0.32, gain: 0.72, delay: 0.44 },
+      { freq: 1760, dur: 0.45, gain: 0.78, delay: 0.80 },
+    ]
+    tones.forEach(t => {
+      try {
+        const osc = ctx.createOscillator()
+        const g   = ctx.createGain()
+        osc.connect(g); g.connect(ctx.destination)
+        osc.type = 'sine'; osc.frequency.value = t.freq
+        const t0 = ctx.currentTime + t.delay
+        g.gain.setValueAtTime(0.001, t0)
+        g.gain.exponentialRampToValueAtTime(t.gain, t0 + 0.02)
+        g.gain.setValueAtTime(t.gain, t0 + t.dur - 0.05)
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + t.dur)
+        osc.start(t0); osc.stop(t0 + t.dur + 0.05)
+      } catch {}
+    })
+  }
+
+  function start(secs = remaining) {
+    initAudio()
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    endRef.current = Date.now() + secs * 1000
+    setRunning(true)
+    intervalRef.current = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000))
+      setRemaining(rem)
+      if (rem <= 0) {
+        clearInterval(intervalRef.current!)
+        intervalRef.current = null
+        setRunning(false)
+        if (audioCtxRef.current) beep(audioCtxRef.current)
+        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 500])
+      }
+    }, 250)
+  }
+
+  function pause() {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = null
+    setRunning(false)
+  }
+
+  function reset(secs?: number) {
+    pause()
+    const t = secs ?? total
+    setTotal(t)
+    setRemaining(t)
+  }
+
+  function loadPreset(secs: number) {
+    reset(secs)
+    setTimeout(() => start(secs), 50)
+  }
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
+
+  const pct     = total > 0 ? (remaining / total) * 100 : 0
+  const mins    = Math.floor(remaining / 60)
+  const secsDisp = remaining % 60
+  const display = `${String(mins).padStart(2, '0')}:${String(secsDisp).padStart(2, '0')}`
+
+  return (
+    <div className="px-4 py-3">
+      <div className="bg-surface rounded-2xl p-6 mb-3 flex flex-col items-center gap-3">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest">Descanso</p>
+        <p className={`text-8xl font-bold tabular-nums leading-none ${running ? 'text-whoop-green' : remaining === 0 ? 'text-gray-600' : 'text-white'}`}>
+          {display}
+        </p>
+        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-whoop-green transition-all duration-300" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex gap-3 mt-1">
+          {running ? (
+            <button onClick={pause} className="px-6 py-2.5 rounded-xl border border-white/20 text-sm font-bold">PAUSAR</button>
+          ) : (
+            <button
+              onClick={() => remaining > 0 ? start() : undefined}
+              disabled={remaining === 0}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors ${remaining > 0 ? 'bg-whoop-green text-black' : 'bg-white/5 text-gray-600'}`}
+            >
+              {remaining === total ? 'INICIAR' : 'CONTINUAR'}
+            </button>
+          )}
+          <button onClick={() => reset()} className="px-4 py-2.5 rounded-xl border border-white/20 text-sm font-bold text-gray-400">✕</button>
+        </div>
+      </div>
+
+      <div className="bg-surface rounded-2xl p-4 mb-3">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Presets de descanso</p>
+        <div className="grid grid-cols-5 gap-2">
+          {TIMER_PRESETS.map(p => (
+            <button
+              key={p.secs}
+              onClick={() => { initAudio(); loadPreset(p.secs) }}
+              className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${
+                total === p.secs ? 'bg-whoop-green text-black border-whoop-green' : 'border-white/20 text-gray-300'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-surface rounded-2xl p-4">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Tempo personalizado</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[30, 45, 60, 90, 120, 180, 240, 300, 360].map(s => (
+            <button key={s} onClick={() => { initAudio(); loadPreset(s) }} className="py-2 rounded-xl border border-white/10 text-xs text-gray-400">
+              {s < 60 ? `${s}s` : `${s / 60}min`}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+function StatsTab({
+  state,
+  setState,
+}: {
+  state: TreinoState
+  setState: (u: (p: TreinoState) => TreinoState) => void
+}) {
+  const pos      = sessionInCycle(state.completedCount)
+  const deload   = isDeload(state.completedCount)
+  const untilDl  = sessionsUntilDeload(state.completedCount)
+  const cycleNum = Math.floor(state.completedCount / CYCLE_LENGTH) + 1
+  const pct      = ((pos - 1) / CYCLE_LENGTH) * 100
+  const split    = SPLITS[state.split]
+  const dayData  = split[state.cursor]
+
+  const readinessHistory = Object.entries(state.readiness)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 7)
+
+  function rdColor(score: number) {
+    if (score >= 80) return 'text-whoop-green'
+    if (score >= 60) return 'text-[#9BD200]'
+    if (score >= 40) return 'text-whoop-yellow'
+    return 'text-whoop-red'
+  }
+
+  return (
+    <div className="px-4 py-3 flex flex-col gap-3">
+      {/* Ciclo */}
+      <div className="bg-surface rounded-2xl p-4">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Ciclo de {CYCLE_LENGTH} sessões</p>
+        <div className="flex justify-between items-baseline mb-2">
+          <span className="text-2xl font-bold">Ciclo {cycleNum}</span>
+          <span className="text-sm text-gray-400">sessão <span className="text-white font-bold">{pos}</span>/{CYCLE_LENGTH}</span>
+        </div>
+        <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+          <div className={`h-full rounded-full transition-all ${deload ? 'bg-whoop-yellow' : 'bg-whoop-green'}`} style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex justify-between text-[10px] text-gray-500">
+          <span>Total: <span className="text-white font-bold">{state.completedCount}</span> sessões</span>
+          {deload
+            ? <span className="text-whoop-yellow font-bold">⚡ SEMANA DELOAD</span>
+            : <span>deload em <span className="text-white font-bold">{untilDl}</span> sessões</span>
+          }
+        </div>
+      </div>
+
+      {/* Próximos dias */}
+      <div className="bg-surface rounded-2xl p-4">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Próximos dias</p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {Array.from({ length: 7 }, (_, i) => {
+            const idx = (state.cursor + i) % split.length
+            const d   = split[idx]
+            return (
+              <div key={i} className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border text-center min-w-[60px] ${i === 0 ? 'border-whoop-green bg-whoop-green/10' : 'border-white/10'}`}>
+                <span className="text-[9px] font-bold text-gray-500">{i === 0 ? 'HOJE' : `+${i}`}</span>
+                <span className="text-[10px] font-semibold text-white mt-0.5">{d.focus}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Split */}
+      <div className="bg-surface rounded-2xl p-4">
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Divisão</p>
+        <div className="flex gap-2 mb-2">
+          {(['6d', '5d'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setState(prev => ({ ...prev, split: s, cursor: prev.cursor % SPLITS[s].length }))}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold border transition-colors ${state.split === s ? 'bg-whoop-green text-black border-whoop-green' : 'text-gray-400 border-white/20'}`}
+            >
+              {s.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400">Hoje: <span className="text-white font-semibold">{dayData.focus}</span></p>
+        <button
+          onClick={() => { if (confirm('Desfazer a última sessão?')) setState(prev => ({ ...prev, cursor: (prev.cursor - 1 + SPLITS[prev.split].length) % SPLITS[prev.split].length, completedCount: Math.max(0, prev.completedCount - 1) })) }}
+          className="mt-3 w-full py-2 text-xs text-gray-600 border border-white/5 rounded-xl"
+        >
+          ↩ Desfazer última sessão
+        </button>
+      </div>
+
+      {/* Histórico readiness */}
+      {readinessHistory.length > 0 && (
+        <div className="bg-surface rounded-2xl p-4">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Prontidão — últimos 7 dias</p>
+          <div className="flex flex-col gap-2">
+            {readinessHistory.map(([date, rd]) => (
+              <div key={date} className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">{date}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-gray-600">sono {rd.sleep} · energia {rd.energy} · dor {rd.soreness} · humor {rd.mood}</span>
+                  <span className={`text-sm font-bold tabular-nums ${rdColor(rd.score)}`}>{rd.score}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
