@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { useWhoopData } from '../hooks/useWhoopData'
 import { SPLITS, WORKOUTS, buscarVideoId, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
+import type { WhoopRecovery, WhoopSleep } from '../types'
 
 type TreinoTab = 'treino' | 'dieta' | 'readiness' | 'timer' | 'stats'
 
@@ -154,6 +156,7 @@ export default function Treino() {
   const [activeTab, setActiveTab] = useState<TreinoTab>('treino')
   const [state, setStateRaw] = useState<TreinoState>(() => loadLocalState())
   const [syncing, setSyncing] = useState(true)
+  const { latestRecovery, latestSleep } = useWhoopData()
 
   // Load from Supabase on mount
   useEffect(() => {
@@ -212,7 +215,7 @@ export default function Treino() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'treino'    && <WorkoutTab state={state} setState={setState} deload={deload} />}
+        {activeTab === 'treino'    && <WorkoutTab state={state} setState={setState} deload={deload} latestRecovery={latestRecovery} latestSleep={latestSleep} />}
         {activeTab === 'dieta'     && <DietaTab state={state} setState={setState} />}
         {activeTab === 'readiness' && <ReadinessTab state={state} setState={setState} />}
         {activeTab === 'timer'     && <TimerTab />}
@@ -222,14 +225,142 @@ export default function Treino() {
   )
 }
 
+// ── Coach ─────────────────────────────────────────────────────────────────────
+
+function coachRecommendation(
+  recovery: number | null,
+  sleepPerf: number | null,
+  subjective: number | null,
+) {
+  // weighted average: recovery 50%, sleep 20%, subjective 30%
+  let sum = 0, weight = 0
+  if (recovery  !== null) { sum += recovery  * 0.50; weight += 0.50 }
+  if (sleepPerf !== null) { sum += sleepPerf * 0.20; weight += 0.20 }
+  if (subjective !== null) { sum += subjective * 0.30; weight += 0.30 }
+  if (weight === 0) return null
+  const score = sum / weight
+
+  if (score >= 75) return {
+    score: Math.round(score),
+    color: 'text-whoop-green', border: 'border-whoop-green/30', bg: 'bg-whoop-green/10',
+    label: 'Treinar forte', emoji: '🟢',
+    advice: 'Recuperação excelente. Tente progressão de carga ou bata um PR hoje.',
+  }
+  if (score >= 55) return {
+    score: Math.round(score),
+    color: 'text-[#9BD200]', border: 'border-[#9BD200]/30', bg: 'bg-[#9BD200]/10',
+    label: 'Treino normal', emoji: '🟡',
+    advice: 'Boa recuperação. Siga o plano normalmente.',
+  }
+  if (score >= 35) return {
+    score: Math.round(score),
+    color: 'text-whoop-yellow', border: 'border-whoop-yellow/30', bg: 'bg-whoop-yellow/10',
+    label: 'Reduzir carga', emoji: '🟠',
+    advice: 'Recuperação parcial. Reduza o peso 10–20% e mantenha as séries.',
+  }
+  return {
+    score: Math.round(score),
+    color: 'text-whoop-red', border: 'border-whoop-red/30', bg: 'bg-whoop-red/10',
+    label: 'Treino leve ou OFF', emoji: '🔴',
+    advice: 'Recuperação baixa. Prefira mobilidade, caminhada ou descanso. Ouvir o corpo é maturidade.',
+  }
+}
+
+function CoachCard({
+  recovery,
+  sleep,
+  readiness,
+}: {
+  recovery: WhoopRecovery | null
+  sleep: WhoopSleep | null
+  readiness: ReadinessDay | null
+}) {
+  const [open, setOpen] = useState(false)
+
+  const whoopScore   = recovery?.recovery_score   ?? null
+  const sleepPerf    = sleep?.sleep_performance_percentage ?? null
+  const subjective   = readiness?.score ?? null
+  const hrv          = recovery?.hrv_rmssd_milli  ?? null
+  const rhr          = recovery?.resting_heart_rate ?? null
+
+  const rec = coachRecommendation(whoopScore, sleepPerf, subjective)
+
+  if (!rec) {
+    return (
+      <div className="bg-surface rounded-2xl px-4 py-3 mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Coach do Dia</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">Conecte o WHOOP ou preencha Prontidão</p>
+        </div>
+        <span className="text-2xl">🤖</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`rounded-2xl mb-3 border ${rec.border} ${rec.bg} overflow-hidden`}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-4 py-3 flex items-center justify-between"
+      >
+        <div className="text-left">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Coach do Dia</p>
+          <p className={`text-sm font-bold mt-0.5 ${rec.color}`}>{rec.emoji} {rec.label}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`text-2xl font-bold tabular-nums ${rec.color}`}>{rec.score}</span>
+          <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-3">
+          <p className="text-xs text-gray-300 leading-relaxed">{rec.advice}</p>
+
+          {/* Sinais */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'WHOOP Recovery', value: whoopScore !== null ? `${whoopScore}%` : '—', sub: 'objetivo' },
+              { label: 'Sono WHOOP',     value: sleepPerf  !== null ? `${sleepPerf}%`  : '—', sub: 'performance' },
+              { label: 'Prontidão',      value: subjective !== null ? `${subjective}`   : '—', sub: 'subjetivo' },
+              { label: 'HRV',            value: hrv !== null ? `${Math.round(hrv)}ms` : '—', sub: 'variabilidade' },
+              { label: 'FC Repouso',     value: rhr !== null ? `${rhr}bpm` : '—',             sub: 'basal' },
+            ].map(s => (
+              <div key={s.label} className="bg-black/30 rounded-xl px-3 py-2">
+                <p className="text-[9px] text-gray-500 uppercase tracking-wide">{s.label}</p>
+                <p className="text-sm font-bold text-white mt-0.5">{s.value}</p>
+                <p className="text-[9px] text-gray-600">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Dica de carga */}
+          {rec.score < 55 && (
+            <div className="bg-black/30 rounded-xl px-3 py-2.5 text-xs text-gray-300">
+              💡 <span className="font-semibold">Dica:</span>{' '}
+              {rec.score < 35
+                ? 'Considere substituir o treino por alongamento ou mobilidade de 20 min.'
+                : 'Reduza o peso em relação à última sessão. Séries e repetições mantidas.'}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WorkoutTab({
   state,
   setState,
   deload,
+  latestRecovery,
+  latestSleep,
 }: {
   state: TreinoState
   setState: (u: (p: TreinoState) => TreinoState) => void
   deload: boolean
+  latestRecovery: WhoopRecovery | null
+  latestSleep: WhoopSleep | null
 }) {
   const [activeRest, setActiveRest] = useState<string | null>(null)
   const [restRemaining, setRestRemaining] = useState(0)
@@ -357,8 +488,12 @@ function WorkoutTab({
 
   const restPct = restTotal > 0 ? (restRemaining / restTotal) * 100 : 0
 
+  const todayReadiness = state.readiness[todayKey()] ?? null
+
   return (
     <div className="px-4 py-3">
+      <CoachCard recovery={latestRecovery} sleep={latestSleep} readiness={todayReadiness} />
+
       {activeRest && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4" onClick={cancelRest}>
           <p className="text-xs text-gray-400 uppercase tracking-widest">Descansando</p>
