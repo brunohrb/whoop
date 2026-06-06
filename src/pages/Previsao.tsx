@@ -6,15 +6,17 @@ const LON = -38.4558
 const API_URL =
   `https://api.open-meteo.com/v1/forecast` +
   `?latitude=${LAT}&longitude=${LON}` +
-  `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,weather_code` +
-  `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m` +
+  `&current=wind_speed_10m,wind_speed_80m,wind_direction_10m,wind_gusts_10m,temperature_2m,weather_code` +
+  `&hourly=wind_speed_10m,wind_speed_80m,wind_direction_10m,wind_gusts_10m` +
   `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,weather_code,temperature_2m_max` +
-  `&wind_speed_unit=kn&timezone=America%2FFortaleza&forecast_days=7`
+  `&wind_speed_unit=kn&timezone=America%2FFortaleza&forecast_days=7` +
+  `&models=ecmwf_ifs025`
 
 interface OpenMeteoResponse {
   current: {
     time: string
     wind_speed_10m: number
+    wind_speed_80m: number
     wind_direction_10m: number
     wind_gusts_10m: number
     temperature_2m: number
@@ -23,6 +25,7 @@ interface OpenMeteoResponse {
   hourly: {
     time: string[]
     wind_speed_10m: number[]
+    wind_speed_80m: number[]
     wind_direction_10m: number[]
     wind_gusts_10m: number[]
   }
@@ -144,7 +147,7 @@ export default function Previsao() {
   }
 
   const cur = data.current
-  const quality = windQuality(cur.wind_speed_10m)
+  const quality = windQuality(cur.wind_speed_80m)
 
   // Next 24h hourly (from current hour)
   const nowHour = new Date().getHours()
@@ -156,7 +159,7 @@ export default function Previsao() {
   const start = hourlyStart >= 0 ? hourlyStart : 0
   const hourlyData = data.hourly.time.slice(start, start + 24).map((t, i) => ({
     hora: new Date(t).getHours() + 'h',
-    vento: Math.round(data.hourly.wind_speed_10m[start + i]),
+    vento: Math.round(data.hourly.wind_speed_80m[start + i]),
     rajada: Math.round(data.hourly.wind_gusts_10m[start + i]),
   }))
 
@@ -180,9 +183,10 @@ export default function Previsao() {
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Agora</p>
               <div className="flex items-end gap-2">
-                <span className="text-5xl font-bold">{Math.round(cur.wind_speed_10m)}</span>
+                <span className="text-5xl font-bold">{Math.round(cur.wind_speed_80m)}</span>
                 <span className="text-lg text-gray-400 pb-1">nós</span>
               </div>
+              <p className="text-[10px] text-gray-600 mt-0.5">superfície {Math.round(cur.wind_speed_10m)} nós</p>
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-xs font-semibold" style={{ color: quality.color }}>
                   {quality.label}
