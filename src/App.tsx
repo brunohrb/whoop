@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import Health from './pages/Health'
 import AIAnalysis from './pages/AIAnalysis'
 import Treino from './pages/Treino'
+import Previsao from './pages/Previsao'
 import ConnectWhoop from './pages/ConnectWhoop'
 import BottomNav from './components/BottomNav'
 import LoadingScreen from './components/LoadingScreen'
@@ -86,6 +87,7 @@ function AppWithAutoSync() {
           <Route path="/saude" element={<Health />} />
           <Route path="/ia" element={<AIAnalysis />} />
           <Route path="/treino" element={<Treino />} />
+          <Route path="/previsao" element={<Previsao />} />
           <Route path="/configuracoes" element={<Settings />} />
           <Route path="/conectar-whoop" element={<ConnectWhoop />} />
           <Route path="*" element={<Navigate to="/" replace />} />
