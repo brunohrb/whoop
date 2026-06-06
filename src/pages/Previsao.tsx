@@ -9,7 +9,7 @@ const API_URL =
   `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,weather_code` +
   `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m` +
   `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,weather_code,temperature_2m_max` +
-  `&wind_speed_unit=kmh&timezone=America%2FFortaleza&forecast_days=7`
+  `&wind_speed_unit=kn&timezone=America%2FFortaleza&forecast_days=7`
 
 interface OpenMeteoResponse {
   current: {
@@ -37,11 +37,11 @@ interface OpenMeteoResponse {
 }
 
 function windQuality(speed: number): { label: string; color: string; sub: string } {
-  if (speed < 10) return { label: 'Calmaria', color: '#888', sub: 'Sem vento' }
-  if (speed < 20) return { label: 'Fraco', color: '#4FC3F7', sub: 'Bom para iniciantes' }
-  if (speed < 30) return { label: 'Moderado', color: '#00D4A0', sub: 'Ótimo para kite' }
-  if (speed < 40) return { label: 'Forte', color: '#F5C518', sub: 'Experientes' }
-  return { label: 'Muito forte', color: '#FF4444', sub: 'Cuidado' }
+  if (speed < 5)  return { label: 'Calmaria',    color: '#888',     sub: 'Sem vento' }
+  if (speed < 11) return { label: 'Fraco',        color: '#4FC3F7',  sub: 'Bom para iniciantes' }
+  if (speed < 16) return { label: 'Moderado',     color: '#00D4A0',  sub: 'Ótimo para kite' }
+  if (speed < 22) return { label: 'Forte',        color: '#F5C518',  sub: 'Experientes' }
+  return                  { label: 'Muito forte', color: '#FF4444',  sub: 'Cuidado' }
 }
 
 function dirLabel(deg: number): string {
@@ -181,7 +181,7 @@ export default function Previsao() {
               <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Agora</p>
               <div className="flex items-end gap-2">
                 <span className="text-5xl font-bold">{Math.round(cur.wind_speed_10m)}</span>
-                <span className="text-lg text-gray-400 pb-1">km/h</span>
+                <span className="text-lg text-gray-400 pb-1">nós</span>
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-xs font-semibold" style={{ color: quality.color }}>
@@ -194,7 +194,7 @@ export default function Previsao() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
-            <StatCell label="Rajada" value={`${Math.round(cur.wind_gusts_10m)} km/h`} color="#F5C518" />
+            <StatCell label="Rajada" value={`${Math.round(cur.wind_gusts_10m)} nós`} color="#F5C518" />
             <StatCell label="Direção" value={`${dirLabel(cur.wind_direction_10m)} ${cur.wind_direction_10m}°`} />
             <StatCell label="Temp." value={`${Math.round(cur.temperature_2m)}°C`} />
           </div>
@@ -209,13 +209,13 @@ export default function Previsao() {
         {/* Hourly chart */}
         <div className="bg-surface rounded-2xl p-4">
           <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Próximas 24h</p>
-          <p className="text-[10px] text-gray-600 mb-3">Velocidade do vento (km/h)</p>
+          <p className="text-[10px] text-gray-600 mb-3">Velocidade do vento (nós)</p>
           <ResponsiveContainer width="100%" height={120}>
             <LineChart data={hourlyData} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
               <XAxis dataKey="hora" tick={{ fill: '#555', fontSize: 9 }} axisLine={false} tickLine={false} interval={3} />
               <YAxis tick={{ fill: '#555', fontSize: 9 }} axisLine={false} tickLine={false} />
-              <ReferenceLine y={20} stroke="#00D4A020" strokeDasharray="4 4" />
-              <ReferenceLine y={30} stroke="#F5C51820" strokeDasharray="4 4" />
+              <ReferenceLine y={11} stroke="#00D4A020" strokeDasharray="4 4" />
+              <ReferenceLine y={16} stroke="#F5C51820" strokeDasharray="4 4" />
               <Tooltip
                 contentStyle={{ background: '#1a1a1a', border: '1px solid #ffffff15', borderRadius: 8, fontSize: 11 }}
                 content={({ payload, label }) => {
@@ -225,8 +225,8 @@ export default function Previsao() {
                   return (
                     <div className="bg-surface-2 border border-white/10 rounded-lg px-3 py-2 text-xs">
                       <p className="text-gray-400 mb-1">{label}</p>
-                      <p>Vento <b style={{ color: q.color }}>{p.vento} km/h</b></p>
-                      <p className="text-gray-500">Rajada {p.rajada} km/h</p>
+                      <p>Vento <b style={{ color: q.color }}>{p.vento} nós</b></p>
+                      <p className="text-gray-500">Rajada {p.rajada} nós</p>
                     </div>
                   )
                 }}
@@ -266,7 +266,7 @@ export default function Previsao() {
                   </div>
                   <div className="text-right">
                     <span className="text-sm font-bold" style={{ color: q.color }}>{spd}</span>
-                    <span className="text-[10px] text-gray-500 ml-0.5">km/h</span>
+                    <span className="text-[10px] text-gray-500 ml-0.5">nós</span>
                   </div>
                   <div className="text-right w-16">
                     <p className="text-[10px] text-gray-500">raj. {gust}</p>
