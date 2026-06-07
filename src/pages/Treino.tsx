@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useWhoopData } from '../hooks/useWhoopData'
-import { SPLITS, WORKOUTS, parseDescanso } from '../data/workouts'
+import { SPLITS, getActivePhase, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
 import type { WhoopRecovery, WhoopSleep } from '../types'
 
@@ -483,7 +483,8 @@ function WorkoutTab({
 
   const split = SPLITS[state.split]
   const dayData = split[state.cursor]
-  const workout = WORKOUTS[dayData.key]
+  const activePhase = getActivePhase(state.completedCount)
+  const workout = activePhase.workouts[dayData.key]
 
   function initAudio() {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -629,6 +630,25 @@ function WorkoutTab({
         </div>
       )}
 
+      {/* Phase banner */}
+      <div className="bg-surface rounded-xl px-3 py-2 mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+            {activePhase.label} · {activePhase.focus}
+          </p>
+          <p className="text-[10px] text-gray-600 mt-0.5">{activePhase.description}</p>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] text-gray-500">
+            Ciclo {Math.floor(state.completedCount / 35) + 1}
+          </span>
+          {deload
+            ? <span className="text-[10px] text-yellow-400 font-bold">⚡ DELOAD</span>
+            : <span className="text-[10px] text-gray-600">deload em {sessionsUntilDeload(state.completedCount)} sess.</span>
+          }
+        </div>
+      </div>
+
       <div className="flex gap-2 mb-3">
         {(['6d', '5d'] as const).map(s => (
           <button
@@ -641,12 +661,6 @@ function WorkoutTab({
             {s.toUpperCase()}
           </button>
         ))}
-        <div className="ml-auto text-xs text-gray-500 self-center">
-          {deload
-            ? <span className="text-yellow-400 font-bold">⚡ DELOAD</span>
-            : <span>deload em {sessionsUntilDeload(state.completedCount)} sess.</span>
-          }
-        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
