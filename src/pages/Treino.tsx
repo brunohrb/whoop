@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useWhoopData } from '../hooks/useWhoopData'
-import { SPLITS, WORKOUTS, buscarVideoId, parseDescanso } from '../data/workouts'
+import { SPLITS, WORKOUTS, parseDescanso } from '../data/workouts'
 import { MEALS } from '../data/meals'
 import type { WhoopRecovery, WhoopSleep } from '../types'
 
@@ -644,7 +644,7 @@ function WorkoutTab({
         <div className="ml-auto text-xs text-gray-500 self-center">
           {deload
             ? <span className="text-yellow-400 font-bold">⚡ DELOAD</span>
-            : <span>deload em {sessionsUntilDeload(state.completedCount)}s</span>
+            : <span>deload em {sessionsUntilDeload(state.completedCount)} sess.</span>
           }
         </div>
       </div>
@@ -718,7 +718,6 @@ function WorkoutTab({
                 const key = `${dayData.key}-${i}`
                 const done = !!state.exercises[key]
                 const adjustedSets = applyAdaptation(applyDeload(ex.sets, deload), adaptLevel)
-                const videoId = buscarVideoId(ex.name)
                 const restSec = parseDescanso(ex.detail)
                 const isRestRunning = activeRest === key
                 return (
@@ -737,17 +736,15 @@ function WorkoutTab({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold leading-tight">{ex.name}</p>
                       <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{ex.detail}</p>
-                      {videoId && (
-                        <a
-                          href={`https://www.youtube.com/watch?v=${videoId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="text-[10px] text-blue-400 mt-0.5 inline-block"
-                        >
-                          ▶ ver execução
-                        </a>
-                      )}
+                      <a
+                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-[10px] text-red-400 mt-0.5 inline-block"
+                      >
+                        ▶ YouTube
+                      </a>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="text-xs font-bold text-white">{adjustedSets}</span>
@@ -1042,6 +1039,7 @@ function TimerTab() {
   const [total,     setTotal]     = useState(60)
   const [remaining, setRemaining] = useState(60)
   const [running,   setRunning]   = useState(false)
+  const [done,      setDone]      = useState(false)
   const endRef      = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -1050,34 +1048,49 @@ function TimerTab() {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
       try { audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)() } catch {}
     }
+    audioCtxRef.current?.resume().catch(() => {})
   }
 
   function beep(ctx: AudioContext) {
-    const tones = [
-      { freq: 880,  dur: 0.18, gain: 0.55, delay: 0.0  },
-      { freq: 1100, dur: 0.18, gain: 0.65, delay: 0.22 },
-      { freq: 1320, dur: 0.32, gain: 0.72, delay: 0.44 },
-      { freq: 1760, dur: 0.45, gain: 0.78, delay: 0.80 },
-    ]
-    tones.forEach(t => {
-      try {
-        const osc = ctx.createOscillator()
-        const g   = ctx.createGain()
-        osc.connect(g); g.connect(ctx.destination)
-        osc.type = 'sine'; osc.frequency.value = t.freq
-        const t0 = ctx.currentTime + t.delay
-        g.gain.setValueAtTime(0.001, t0)
-        g.gain.exponentialRampToValueAtTime(t.gain, t0 + 0.02)
-        g.gain.setValueAtTime(t.gain, t0 + t.dur - 0.05)
-        g.gain.exponentialRampToValueAtTime(0.001, t0 + t.dur)
-        osc.start(t0); osc.stop(t0 + t.dur + 0.05)
-      } catch {}
-    })
+    ctx.resume().then(() => {
+      const tones = [
+        { freq: 880,  dur: 0.18, gain: 0.55, delay: 0.0  },
+        { freq: 1100, dur: 0.18, gain: 0.65, delay: 0.22 },
+        { freq: 1320, dur: 0.32, gain: 0.72, delay: 0.44 },
+        { freq: 1760, dur: 0.45, gain: 0.78, delay: 0.80 },
+      ]
+      tones.forEach(t => {
+        try {
+          const osc = ctx.createOscillator()
+          const g   = ctx.createGain()
+          osc.connect(g); g.connect(ctx.destination)
+          osc.type = 'sine'; osc.frequency.value = t.freq
+          const t0 = ctx.currentTime + t.delay
+          g.gain.setValueAtTime(0.001, t0)
+          g.gain.exponentialRampToValueAtTime(t.gain, t0 + 0.02)
+          g.gain.setValueAtTime(t.gain, t0 + t.dur - 0.05)
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + t.dur)
+          osc.start(t0); osc.stop(t0 + t.dur + 0.05)
+        } catch {}
+      })
+    }).catch(() => {})
+  }
+
+  function sendNotification() {
+    if (!('Notification' in window)) return
+    if (Notification.permission === 'granted') {
+      new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg', silent: false })
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg' })
+      })
+    }
   }
 
   function start(secs = remaining) {
     initAudio()
     if (intervalRef.current) clearInterval(intervalRef.current)
+    setDone(false)
     endRef.current = Date.now() + secs * 1000
     setRunning(true)
     intervalRef.current = setInterval(() => {
@@ -1087,8 +1100,10 @@ function TimerTab() {
         clearInterval(intervalRef.current!)
         intervalRef.current = null
         setRunning(false)
+        setDone(true)
         if (audioCtxRef.current) beep(audioCtxRef.current)
-        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 500])
+        if ('vibrate' in navigator) navigator.vibrate([400, 100, 400, 100, 600])
+        sendNotification()
       }
     }, 250)
   }
@@ -1101,6 +1116,7 @@ function TimerTab() {
 
   function reset(secs?: number) {
     pause()
+    setDone(false)
     const t = secs ?? total
     setTotal(t)
     setRemaining(t)
@@ -1113,16 +1129,28 @@ function TimerTab() {
 
   useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
 
-  const pct     = total > 0 ? (remaining / total) * 100 : 0
-  const mins    = Math.floor(remaining / 60)
+  const pct      = total > 0 ? (remaining / total) * 100 : 0
+  const mins     = Math.floor(remaining / 60)
   const secsDisp = remaining % 60
-  const display = `${String(mins).padStart(2, '0')}:${String(secsDisp).padStart(2, '0')}`
+  const display  = `${String(mins).padStart(2, '0')}:${String(secsDisp).padStart(2, '0')}`
 
   return (
     <div className="px-4 py-3">
+      {done && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4 animate-pulse-slow"
+          onClick={() => setDone(false)}
+        >
+          <p className="text-7xl">💪</p>
+          <p className="text-4xl font-bold text-whoop-green">TEMPO!</p>
+          <p className="text-sm text-gray-400">Hora de treinar</p>
+          <p className="text-xs text-gray-600 mt-4">Toque para fechar</p>
+        </div>
+      )}
+
       <div className="bg-surface rounded-2xl p-6 mb-3 flex flex-col items-center gap-3">
         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Descanso</p>
-        <p className={`text-8xl font-bold tabular-nums leading-none ${running ? 'text-whoop-green' : remaining === 0 ? 'text-gray-600' : 'text-white'}`}>
+        <p className={`text-8xl font-bold tabular-nums leading-none transition-colors ${running ? 'text-whoop-green' : remaining === 0 ? 'text-whoop-green' : 'text-white'}`}>
           {display}
         </p>
         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -1133,7 +1161,7 @@ function TimerTab() {
             <button onClick={pause} className="px-6 py-2.5 rounded-xl border border-white/20 text-sm font-bold">PAUSAR</button>
           ) : (
             <button
-              onClick={() => remaining > 0 ? start() : undefined}
+              onClick={() => { if (remaining > 0) { initAudio(); start() } }}
               disabled={remaining === 0}
               className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors ${remaining > 0 ? 'bg-whoop-green text-black' : 'bg-white/5 text-gray-600'}`}
             >
