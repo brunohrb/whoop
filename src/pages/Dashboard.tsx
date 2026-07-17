@@ -96,17 +96,17 @@ export default function Dashboard() {
 
       {!whoopConnected ? (
         <div className="mx-4 mt-4 bg-surface rounded-2xl p-6 text-center">
-          <p className="text-gray-400 mb-3">WHOOP não conectado</p>
+          <p className="text-gray-400 mb-3">Fitbit não conectado</p>
           <button
-            onClick={() => navigate('/conectar-whoop')}
-            className="bg-whoop-green text-black font-bold py-2.5 px-6 rounded-xl text-sm"
+            onClick={() => navigate('/conectar-fitbit')}
+            className="bg-bhr-green text-black font-bold py-2.5 px-6 rounded-xl text-sm"
           >
-            Conectar WHOOP
+            Conectar Fitbit
           </button>
         </div>
       ) : (
         <>
-          {/* 3 ring summary — WHOOP style */}
+          {/* 3 ring summary */}
           <div className="mx-4 mt-3 bg-surface rounded-3xl px-4 py-5">
             <div className="flex justify-around items-center">
               <RingMetric
@@ -140,7 +140,7 @@ export default function Dashboard() {
           {/* AI Analysis entry */}
           <Link
             to="/ia"
-            className="mx-4 mt-3 bg-gradient-to-r from-whoop-green/15 to-purple-500/15 border border-whoop-green/20 rounded-2xl p-4 flex items-center gap-3 active:opacity-70"
+            className="mx-4 mt-3 bg-gradient-to-r from-bhr-green/15 to-purple-500/15 border border-bhr-green/20 rounded-2xl p-4 flex items-center gap-3 active:opacity-70"
           >
             <span className="text-2xl">🤖</span>
             <div className="flex-1">
@@ -164,7 +164,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">Recuperação</p>
                 {recovTrend != null && (
-                  <span className={`text-xs font-semibold ${recovTrend >= 0 ? 'text-whoop-green' : 'text-red-400'}`}>
+                  <span className={`text-xs font-semibold ${recovTrend >= 0 ? 'text-bhr-green' : 'text-red-400'}`}>
                     {recovTrend >= 0 ? '↑' : '↓'} {Math.abs(Math.round(recovTrend))}pts vs ontem
                   </span>
                 )}
@@ -233,7 +233,7 @@ export default function Dashboard() {
               <button
                 onClick={sync}
                 disabled={syncing}
-                className="bg-whoop-green text-black font-bold py-2.5 px-6 rounded-xl text-sm disabled:opacity-50"
+                className="bg-bhr-green text-black font-bold py-2.5 px-6 rounded-xl text-sm disabled:opacity-50"
               >
                 {syncing ? 'Sincronizando...' : '↻ Sincronizar'}
               </button>
@@ -316,7 +316,7 @@ function StrainCoach({ recovery, strain }: { recovery: number; strain: number | 
       {strain != null && (
         <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-white/5">
           Esforço atual: <span className="font-bold" style={{ color: strainColor(strain) }}>{strain.toFixed(1)}</span>
-          {current >= min && current <= max && <span className="text-whoop-green ml-2">✓ na zona ideal</span>}
+          {current >= min && current <= max && <span className="text-bhr-green ml-2">✓ na zona ideal</span>}
           {current > max && <span className="text-red-400 ml-2">acima do alvo</span>}
         </p>
       )}

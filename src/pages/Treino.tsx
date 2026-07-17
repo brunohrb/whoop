@@ -204,7 +204,7 @@ export default function Treino() {
   if (syncing) {
     return (
       <div className="flex items-center justify-center h-40">
-        <div className="w-6 h-6 border-2 border-whoop-green border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-bhr-green border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -223,7 +223,7 @@ export default function Treino() {
             key={t}
             onClick={() => setActiveTab(t)}
             className={`flex-shrink-0 flex-1 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
-              activeTab === t ? 'text-whoop-green border-b-2 border-whoop-green' : 'text-gray-500'
+              activeTab === t ? 'text-bhr-green border-b-2 border-bhr-green' : 'text-gray-500'
             }`}
           >
             {label}
@@ -259,7 +259,7 @@ function coachRecommendation(
 
   if (score >= 75) return {
     score: Math.round(score),
-    color: 'text-whoop-green', border: 'border-whoop-green/30', bg: 'bg-whoop-green/10',
+    color: 'text-bhr-green', border: 'border-bhr-green/30', bg: 'bg-bhr-green/10',
     label: 'Treinar forte', emoji: '🟢',
     advice: 'Recuperação excelente. Tente progressão de carga ou bata um PR hoje.',
   }
@@ -271,13 +271,13 @@ function coachRecommendation(
   }
   if (score >= 35) return {
     score: Math.round(score),
-    color: 'text-whoop-yellow', border: 'border-whoop-yellow/30', bg: 'bg-whoop-yellow/10',
+    color: 'text-bhr-yellow', border: 'border-bhr-yellow/30', bg: 'bg-bhr-yellow/10',
     label: 'Reduzir carga', emoji: '🟠',
     advice: 'Recuperação parcial. Reduza o peso 10–20% e mantenha as séries.',
   }
   return {
     score: Math.round(score),
-    color: 'text-whoop-red', border: 'border-whoop-red/30', bg: 'bg-whoop-red/10',
+    color: 'text-bhr-red', border: 'border-bhr-red/30', bg: 'bg-bhr-red/10',
     label: 'Treino leve ou OFF', emoji: '🔴',
     advice: 'Recuperação baixa. Prefira mobilidade, caminhada ou descanso. Ouvir o corpo é maturidade.',
   }
@@ -361,7 +361,7 @@ function CoachCard({
   }
 
   const signals = [
-    { label: 'Recovery WHOOP', value: whoopScore !== null ? `${whoopScore}%`        : '—', sub: 'objetivo'      },
+    { label: 'Recuperação', value: whoopScore !== null ? `${whoopScore}%`        : '—', sub: 'objetivo'      },
     { label: 'Sono WHOOP',     value: sleepPerf  !== null ? `${sleepPerf}%`         : '—', sub: 'performance'   },
     { label: 'Prontidão',      value: subjective !== null ? `${subjective}`          : '—', sub: 'subjetivo'     },
     { label: 'HRV',            value: hrv        !== null ? `${Math.round(hrv)}ms`  : '—', sub: 'variabilidade' },
@@ -401,7 +401,7 @@ function CoachCard({
           {isRestDay && rec.score >= 75 && (
             <button
               onClick={() => { onSkipRest(); setOpen(false) }}
-              className="w-full py-2.5 rounded-xl bg-whoop-green text-black text-xs font-bold"
+              className="w-full py-2.5 rounded-xl bg-bhr-green text-black text-xs font-bold"
             >
               💪 Pular descanso e treinar hoje
             </button>
@@ -415,8 +415,8 @@ function CoachCard({
               <div className="grid grid-cols-3 gap-2">
                 {([
                   ['none',     'Normal',      'text-white',        adaptLevel === 'none'],
-                  ['moderate', '−25%',        'text-whoop-yellow', adaptLevel === 'moderate'],
-                  ['heavy',    '−50%',        'text-whoop-red',    adaptLevel === 'heavy'],
+                  ['moderate', '−25%',        'text-bhr-yellow', adaptLevel === 'moderate'],
+                  ['heavy',    '−50%',        'text-bhr-red',    adaptLevel === 'heavy'],
                 ] as const).map(([level, label, color, active]) => (
                   <button
                     key={level}
@@ -446,7 +446,7 @@ function CoachCard({
           {!isRestDay && rec.score < 35 && (
             <button
               onClick={() => { onPullRestForward(); setOpen(false) }}
-              className="w-full py-2.5 rounded-xl border border-whoop-red/40 text-whoop-red text-xs font-bold"
+              className="w-full py-2.5 rounded-xl border border-bhr-red/40 text-bhr-red text-xs font-bold"
             >
               😴 Antecipar descanso — treinar amanhã
             </button>
@@ -622,9 +622,9 @@ function WorkoutTab({
       {activeRest && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4" onClick={cancelRest}>
           <p className="text-xs text-gray-400 uppercase tracking-widest">Descansando</p>
-          <div className="text-8xl font-bold tabular-nums text-whoop-green">{String(restRemaining).padStart(2, '0')}</div>
+          <div className="text-8xl font-bold tabular-nums text-bhr-green">{String(restRemaining).padStart(2, '0')}</div>
           <div className="w-48 h-2 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-whoop-green transition-all" style={{ width: `${restPct}%` }} />
+            <div className="h-full bg-bhr-green transition-all" style={{ width: `${restPct}%` }} />
           </div>
           <p className="text-xs text-gray-500 mt-2">Toque para cancelar</p>
         </div>
@@ -655,7 +655,7 @@ function WorkoutTab({
             key={s}
             onClick={() => setState(prev => ({ ...prev, split: s, cursor: prev.cursor % SPLITS[s].length }))}
             className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
-              state.split === s ? 'bg-whoop-green text-black border-whoop-green' : 'text-gray-400 border-white/20'
+              state.split === s ? 'bg-bhr-green text-black border-bhr-green' : 'text-gray-400 border-white/20'
             }`}
           >
             {s.toUpperCase()}
@@ -671,7 +671,7 @@ function WorkoutTab({
             <div
               key={i}
               className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border text-center min-w-[64px] ${
-                i === 0 ? 'border-whoop-green bg-whoop-green/10' : 'border-white/10 bg-surface'
+                i === 0 ? 'border-bhr-green bg-bhr-green/10' : 'border-white/10 bg-surface'
               }`}
             >
               <span className="text-[9px] font-bold text-gray-400">{i === 0 ? 'AGORA' : `+${i}`}</span>
@@ -696,7 +696,7 @@ function WorkoutTab({
         <div className="bg-surface rounded-2xl p-4 mb-3">
           <p className="font-bold text-xl text-center">DESCANSO</p>
           <p className="text-gray-400 text-sm text-center mt-2">{workout.note}</p>
-          <button onClick={advanceSession} className="w-full mt-4 py-3 rounded-xl bg-whoop-green text-black font-bold text-sm">
+          <button onClick={advanceSession} className="w-full mt-4 py-3 rounded-xl bg-bhr-green text-black font-bold text-sm">
             CONCLUIR DESCANSO →
           </button>
         </div>
@@ -709,7 +709,7 @@ function WorkoutTab({
             <div className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2 mb-3">
               <div>
                 <p className="text-[9px] text-gray-500 uppercase">Cronômetro</p>
-                <p className={`font-bold tabular-nums text-lg ${chronoRunning ? 'text-whoop-green' : 'text-white'}`}>
+                <p className={`font-bold tabular-nums text-lg ${chronoRunning ? 'text-bhr-green' : 'text-white'}`}>
                   {fmtChrono(chronoSec)}
                 </p>
               </div>
@@ -722,7 +722,7 @@ function WorkoutTab({
             </div>
 
             {adaptLevel !== 'none' && (
-              <div className="mb-2 px-1 text-[10px] text-whoop-yellow">
+              <div className="mb-2 px-1 text-[10px] text-bhr-yellow">
                 ⚡ Treino adaptado pelo Coach ({adaptLevel === 'moderate' ? '−25% volume' : '−50% volume'})
               </div>
             )}
@@ -739,11 +739,11 @@ function WorkoutTab({
                     key={key}
                     onClick={() => toggleExercise(key)}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition-all ${
-                      done ? 'bg-whoop-green/10 opacity-60' : 'bg-white/5'
+                      done ? 'bg-bhr-green/10 opacity-60' : 'bg-white/5'
                     }`}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      done ? 'border-whoop-green bg-whoop-green' : 'border-white/30'
+                      done ? 'border-bhr-green bg-bhr-green' : 'border-white/30'
                     }`}>
                       {done && <span className="text-black text-xs font-bold">✓</span>}
                     </div>
@@ -765,7 +765,7 @@ function WorkoutTab({
                       <button
                         onClick={e => { e.stopPropagation(); initAudio(); isRestRunning ? cancelRest() : startRest(key, restSec) }}
                         className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          isRestRunning ? 'border-whoop-green text-whoop-green' : 'border-white/20 text-gray-400'
+                          isRestRunning ? 'border-bhr-green text-bhr-green' : 'border-white/20 text-gray-400'
                         }`}
                       >
                         ⏱
@@ -786,7 +786,7 @@ function WorkoutTab({
                   onClick={advanceSession}
                   disabled={doneCount === 0}
                   className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${
-                    allDone ? 'bg-whoop-green text-black' : doneCount > 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-600'
+                    allDone ? 'bg-bhr-green text-black' : doneCount > 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-600'
                   }`}
                 >
                   {allDone ? '✓ FINALIZAR TREINO' : `FINALIZAR (${doneCount}/${workout.exercises.length})`}
@@ -846,7 +846,7 @@ function DietaTab({
           <button
             onClick={() => setState(prev => ({ ...prev, fastToday: false }))}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
-              !state.fastToday ? 'bg-whoop-green text-black' : 'bg-white/5 text-gray-400'
+              !state.fastToday ? 'bg-bhr-green text-black' : 'bg-white/5 text-gray-400'
             }`}
           >
             NORMAL
@@ -874,7 +874,7 @@ function DietaTab({
             <div
               key={m.id}
               onClick={() => setState(prev => ({ ...prev, meals: { ...prev.meals, [m.id]: !prev.meals[m.id] } }))}
-              className={`bg-surface rounded-2xl p-4 cursor-pointer transition-all ${done ? 'opacity-60 ring-1 ring-whoop-green/40' : ''}`}
+              className={`bg-surface rounded-2xl p-4 cursor-pointer transition-all ${done ? 'opacity-60 ring-1 ring-bhr-green/40' : ''}`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div>
@@ -883,7 +883,7 @@ function DietaTab({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">{m.time}</span>
-                  {done && <span className="text-whoop-green text-sm">✓</span>}
+                  {done && <span className="text-bhr-green text-sm">✓</span>}
                 </div>
               </div>
 
@@ -894,7 +894,7 @@ function DietaTab({
                       key={i}
                       onClick={() => setState(prev => ({ ...prev, mealChoice: { ...prev.mealChoice, [m.id]: i } }))}
                       className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                        i === chosenIdx ? 'border-whoop-green text-whoop-green' : 'border-white/20 text-gray-500'
+                        i === chosenIdx ? 'border-bhr-green text-bhr-green' : 'border-white/20 text-gray-500'
                       }`}
                     >
                       {o.label}
@@ -920,7 +920,7 @@ function DietaTab({
       <div className="bg-surface rounded-2xl p-4 mt-3">
         <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Total do dia</p>
         <div className="grid grid-cols-4 text-center">
-          <div><p className="text-lg font-bold text-whoop-green">{totals.kcal}</p><p className="text-[10px] text-gray-500">kcal</p></div>
+          <div><p className="text-lg font-bold text-bhr-green">{totals.kcal}</p><p className="text-[10px] text-gray-500">kcal</p></div>
           <div><p className="text-lg font-bold">{totals.p}</p><p className="text-[10px] text-gray-500">prot</p></div>
           <div><p className="text-lg font-bold">{totals.c}</p><p className="text-[10px] text-gray-500">carb</p></div>
           <div><p className="text-lg font-bold">{totals.g}</p><p className="text-[10px] text-gray-500">gord</p></div>
@@ -938,10 +938,10 @@ function computeReadinessScore(r: { sleep: number; energy: number; soreness: num
 }
 
 function readinessInfo(score: number) {
-  if (score >= 80) return { level: 'ALTA', colorClass: 'text-whoop-green', advice: 'Corpo pronto. Treine forte — pode tentar PR hoje.' }
+  if (score >= 80) return { level: 'ALTA', colorClass: 'text-bhr-green', advice: 'Corpo pronto. Treine forte — pode tentar PR hoje.' }
   if (score >= 60) return { level: 'BOA', colorClass: 'text-[#9BD200]', advice: 'Treino normal conforme plano.' }
-  if (score >= 40) return { level: 'MÉDIA', colorClass: 'text-whoop-yellow', advice: 'Reduza carga 10–15%. Mantenha séries.' }
-  return { level: 'BAIXA', colorClass: 'text-whoop-red', advice: 'Treino leve ou off — ouvir o corpo não é fraqueza.' }
+  if (score >= 40) return { level: 'MÉDIA', colorClass: 'text-bhr-yellow', advice: 'Reduza carga 10–15%. Mantenha séries.' }
+  return { level: 'BAIXA', colorClass: 'text-bhr-red', advice: 'Treino leve ou off — ouvir o corpo não é fraqueza.' }
 }
 
 const RD_SLIDERS = [
@@ -999,7 +999,7 @@ function ReadinessTab({
                 <p className="text-sm font-semibold">{label}</p>
                 <p className="text-[10px] text-gray-500">{hint}</p>
               </div>
-              <span className="text-2xl font-bold text-whoop-green tabular-nums">{rd[key]}</span>
+              <span className="text-2xl font-bold text-bhr-green tabular-nums">{rd[key]}</span>
             </div>
             <input
               type="range"
@@ -1023,10 +1023,10 @@ function ReadinessTab({
         <p className="text-[10px] text-gray-400 uppercase font-semibold mb-3">Guia</p>
         <div className="flex flex-col gap-2">
           {[
-            { range: '80+',   cls: 'text-whoop-green',  text: 'Corpo pronto — tente progressão de carga ou PR' },
+            { range: '80+',   cls: 'text-bhr-green',  text: 'Corpo pronto — tente progressão de carga ou PR' },
             { range: '60–79', cls: 'text-[#9BD200]',    text: 'Treino normal conforme o plano' },
-            { range: '40–59', cls: 'text-whoop-yellow', text: 'Reduza carga 10–15%, mantenha séries' },
-            { range: '<40',   cls: 'text-whoop-red',    text: 'Treino leve ou off — ouvir o corpo é maturidade' },
+            { range: '40–59', cls: 'text-bhr-yellow', text: 'Reduza carga 10–15%, mantenha séries' },
+            { range: '<40',   cls: 'text-bhr-red',    text: 'Treino leve ou off — ouvir o corpo é maturidade' },
           ].map(({ range, cls, text }) => (
             <div key={range} className="flex items-start gap-3 text-xs">
               <span className={`font-bold w-12 flex-shrink-0 ${cls}`}>{range}</span>
@@ -1093,10 +1093,10 @@ function TimerTab() {
   function sendNotification() {
     if (!('Notification' in window)) return
     if (Notification.permission === 'granted') {
-      new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg', silent: false })
+      new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/saude-bhr/icons/icon.svg', silent: false })
     } else if (Notification.permission !== 'denied') {
       Notification.requestPermission().then(p => {
-        if (p === 'granted') new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg' })
+        if (p === 'granted') new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/saude-bhr/icons/icon.svg' })
       })
     }
   }
@@ -1156,7 +1156,7 @@ function TimerTab() {
           onClick={() => setDone(false)}
         >
           <p className="text-7xl">💪</p>
-          <p className="text-4xl font-bold text-whoop-green">TEMPO!</p>
+          <p className="text-4xl font-bold text-bhr-green">TEMPO!</p>
           <p className="text-sm text-gray-400">Hora de treinar</p>
           <p className="text-xs text-gray-600 mt-4">Toque para fechar</p>
         </div>
@@ -1164,11 +1164,11 @@ function TimerTab() {
 
       <div className="bg-surface rounded-2xl p-6 mb-3 flex flex-col items-center gap-3">
         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Descanso</p>
-        <p className={`text-8xl font-bold tabular-nums leading-none transition-colors ${running ? 'text-whoop-green' : remaining === 0 ? 'text-whoop-green' : 'text-white'}`}>
+        <p className={`text-8xl font-bold tabular-nums leading-none transition-colors ${running ? 'text-bhr-green' : remaining === 0 ? 'text-bhr-green' : 'text-white'}`}>
           {display}
         </p>
         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-whoop-green transition-all duration-300" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-bhr-green transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
         <div className="flex gap-3 mt-1">
           {running ? (
@@ -1177,7 +1177,7 @@ function TimerTab() {
             <button
               onClick={() => { if (remaining > 0) { initAudio(); start() } }}
               disabled={remaining === 0}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors ${remaining > 0 ? 'bg-whoop-green text-black' : 'bg-white/5 text-gray-600'}`}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors ${remaining > 0 ? 'bg-bhr-green text-black' : 'bg-white/5 text-gray-600'}`}
             >
               {remaining === total ? 'INICIAR' : 'CONTINUAR'}
             </button>
@@ -1194,7 +1194,7 @@ function TimerTab() {
               key={p.secs}
               onClick={() => { initAudio(); loadPreset(p.secs) }}
               className={`py-2.5 rounded-xl text-xs font-bold border transition-colors ${
-                total === p.secs ? 'bg-whoop-green text-black border-whoop-green' : 'border-white/20 text-gray-300'
+                total === p.secs ? 'bg-bhr-green text-black border-bhr-green' : 'border-white/20 text-gray-300'
               }`}
             >
               {p.label}
@@ -1239,10 +1239,10 @@ function StatsTab({
     .slice(0, 7)
 
   function rdColor(score: number) {
-    if (score >= 80) return 'text-whoop-green'
+    if (score >= 80) return 'text-bhr-green'
     if (score >= 60) return 'text-[#9BD200]'
-    if (score >= 40) return 'text-whoop-yellow'
-    return 'text-whoop-red'
+    if (score >= 40) return 'text-bhr-yellow'
+    return 'text-bhr-red'
   }
 
   return (
@@ -1255,12 +1255,12 @@ function StatsTab({
           <span className="text-sm text-gray-400">sessão <span className="text-white font-bold">{pos}</span>/{CYCLE_LENGTH}</span>
         </div>
         <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-          <div className={`h-full rounded-full transition-all ${deload ? 'bg-whoop-yellow' : 'bg-whoop-green'}`} style={{ width: `${pct}%` }} />
+          <div className={`h-full rounded-full transition-all ${deload ? 'bg-bhr-yellow' : 'bg-bhr-green'}`} style={{ width: `${pct}%` }} />
         </div>
         <div className="flex justify-between text-[10px] text-gray-500">
           <span>Total: <span className="text-white font-bold">{state.completedCount}</span> sessões</span>
           {deload
-            ? <span className="text-whoop-yellow font-bold">⚡ SEMANA DELOAD</span>
+            ? <span className="text-bhr-yellow font-bold">⚡ SEMANA DELOAD</span>
             : <span>deload em <span className="text-white font-bold">{untilDl}</span> sessões</span>
           }
         </div>
@@ -1274,7 +1274,7 @@ function StatsTab({
             const idx = (state.cursor + i) % split.length
             const d   = split[idx]
             return (
-              <div key={i} className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border text-center min-w-[60px] ${i === 0 ? 'border-whoop-green bg-whoop-green/10' : 'border-white/10'}`}>
+              <div key={i} className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl border text-center min-w-[60px] ${i === 0 ? 'border-bhr-green bg-bhr-green/10' : 'border-white/10'}`}>
                 <span className="text-[9px] font-bold text-gray-500">{i === 0 ? 'HOJE' : `+${i}`}</span>
                 <span className="text-[10px] font-semibold text-white mt-0.5">{d.focus}</span>
               </div>
@@ -1291,7 +1291,7 @@ function StatsTab({
             <button
               key={s}
               onClick={() => setState(prev => ({ ...prev, split: s, cursor: prev.cursor % SPLITS[s].length }))}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold border transition-colors ${state.split === s ? 'bg-whoop-green text-black border-whoop-green' : 'text-gray-400 border-white/20'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold border transition-colors ${state.split === s ? 'bg-bhr-green text-black border-bhr-green' : 'text-gray-400 border-white/20'}`}
             >
               {s.toUpperCase()}
             </button>

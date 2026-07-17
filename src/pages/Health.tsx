@@ -113,7 +113,7 @@ function TrendsTab({ cycles, recoveries, sleeps }: {
   sleeps: ReturnType<typeof useWhoopData>['recentSleeps']
 }) {
   const daily = cycles.slice(0, 30).reverse().map(c => {
-    const rec = recoveries.find(r => r.cycle_id === c.whoop_cycle_id)
+    const rec = recoveries.find(r => r.cycle_id === c.fitbit_activity_id)
     return {
       date: formatShortDate(c.start_time),
       recovery: rec?.recovery_score ?? null,
@@ -263,7 +263,7 @@ function JournalTab({ entries, onSaved }: { entries: JournalEntry[]; onSaved: ()
         <button
           onClick={() => setShowForm(true)}
           className={`w-full py-3 rounded-xl font-bold text-sm ${
-            todayEntry ? 'bg-white/10 text-gray-300' : 'bg-whoop-green text-black'
+            todayEntry ? 'bg-white/10 text-gray-300' : 'bg-bhr-green text-black'
           }`}
         >
           {todayEntry ? '✏️ Editar registro de hoje' : '+ Registrar bem-estar de hoje'}
@@ -395,9 +395,9 @@ function JournalForm({ existing, onSaved, onCancel }: {
       notes: form.notes || null,
     }
     if (existing) {
-      await supabase.schema('whoop').from('journal').update(payload).eq('id', existing.id)
+      await supabase.schema('fitbit').from('journal').update(payload).eq('id', existing.id)
     } else {
-      await supabase.schema('whoop').from('journal').insert(payload)
+      await supabase.schema('fitbit').from('journal').insert(payload)
     }
     setSaving(false)
     onSaved()
@@ -445,7 +445,7 @@ function JournalForm({ existing, onSaved, onCancel }: {
               onClick={() => toggleTag(tag.id)}
               className={`text-xs rounded-full px-2.5 py-1 transition-colors ${
                 form.tags.includes(tag.id)
-                  ? 'bg-whoop-green/20 text-whoop-green border border-whoop-green/30'
+                  ? 'bg-bhr-green/20 text-bhr-green border border-bhr-green/30'
                   : 'bg-white/8 text-gray-400 border border-transparent'
               }`}
             >
@@ -471,7 +471,7 @@ function JournalForm({ existing, onSaved, onCancel }: {
           Cancelar
         </button>
         <button onClick={save} disabled={saving}
-          className="flex-1 py-2.5 rounded-xl bg-whoop-green text-black font-bold text-sm disabled:opacity-50">
+          className="flex-1 py-2.5 rounded-xl bg-bhr-green text-black font-bold text-sm disabled:opacity-50">
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
       </div>
@@ -495,7 +495,7 @@ function BloodTab({ entries, onAdded }: { entries: BloodWork[]; onAdded: () => v
   return (
     <div className="px-4 flex flex-col gap-3">
       <button onClick={() => setShowForm(true)}
-        className="w-full py-3 bg-whoop-green text-black font-bold rounded-xl text-sm">
+        className="w-full py-3 bg-bhr-green text-black font-bold rounded-xl text-sm">
         + Adicionar Exame
       </button>
 
@@ -614,7 +614,7 @@ function AddBloodWorkForm({ onSaved, onCancel }: { onSaved: () => void; onCancel
     if (!markerName || !form.value) return
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.schema('whoop').from('blood_work').insert({
+    await supabase.schema('fitbit').from('blood_work').insert({
       user_id: user!.id, test_date: form.test_date, marker: markerName,
       value: parseFloat(form.value), unit: form.unit,
       ref_min: form.refMin ? parseFloat(form.refMin) : null,
@@ -670,7 +670,7 @@ function AddBloodWorkForm({ onSaved, onCancel }: { onSaved: () => void; onCancel
       <div className="flex gap-2 mt-1">
         <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-gray-400">Cancelar</button>
         <button onClick={save} disabled={saving}
-          className="flex-1 py-2.5 rounded-xl bg-whoop-green text-black font-bold text-sm disabled:opacity-50">
+          className="flex-1 py-2.5 rounded-xl bg-bhr-green text-black font-bold text-sm disabled:opacity-50">
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
       </div>

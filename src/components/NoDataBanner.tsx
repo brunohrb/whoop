@@ -12,12 +12,12 @@ export default function NoDataBanner({ connected, onSync, syncing }: Props) {
   if (!connected) {
     return (
       <div className="mx-5 mt-4 bg-surface rounded-2xl p-5 flex flex-col gap-3 border border-white/10">
-        <p className="text-gray-300 text-sm">Conecte seu WHOOP para ver seus dados aqui.</p>
+        <p className="text-gray-300 text-sm">Conecte seu Fitbit para ver seus dados aqui.</p>
         <button
           onClick={() => navigate('/configuracoes')}
-          className="bg-whoop-green text-black font-semibold py-2.5 px-5 rounded-xl text-sm w-full"
+          className="bg-bhr-green text-black font-semibold py-2.5 px-5 rounded-xl text-sm w-full"
         >
-          Conectar WHOOP
+          Conectar Fitbit
         </button>
       </div>
     )
@@ -29,7 +29,7 @@ export default function NoDataBanner({ connected, onSync, syncing }: Props) {
       <button
         onClick={onSync}
         disabled={syncing}
-        className="bg-whoop-green text-black font-semibold py-2.5 px-5 rounded-xl text-sm w-full disabled:opacity-50"
+        className="bg-bhr-green text-black font-semibold py-2.5 px-5 rounded-xl text-sm w-full disabled:opacity-50"
       >
         {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
       </button>

@@ -1,33 +1,33 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useWhoopData } from '../hooks/useWhoopData'
+import { useFitbitData } from '../hooks/useFitbitData'
 import { useSync } from '../hooks/useSync'
 import { supabase } from '../lib/supabase'
 
 export default function Settings() {
   const { user, signOut } = useAuth()
-  const { profile, syncStatus, whoopConnected, recentSleeps, refresh } = useWhoopData()
+  const { profile, syncStatus, fitbitConnected, recentSleeps, refresh } = useFitbitData()
   const { sync, syncing, error: syncError, lastResult } = useSync(refresh)
   const navigate = useNavigate()
-  const [whoopError, setWhoopError] = useState<string | null>(null)
+  const [fitbitError, setFitbitError] = useState<string | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('whoop_connected') === 'true') {
+    if (params.get('fitbit_connected') === 'true') {
       refresh()
       window.history.replaceState({}, '', window.location.pathname)
     }
-    const err = params.get('whoop_error')
+    const err = params.get('fitbit_error')
     if (err) {
-      setWhoopError(`Erro ao conectar WHOOP: ${err}`)
+      setFitbitError(`Erro ao conectar Fitbit: ${err}`)
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [refresh])
 
   const handleDisconnect = async () => {
-    if (!confirm('Deseja desconectar o WHOOP? Seus dados sincronizados serão mantidos.')) return
-    await supabase.schema('whoop').from('user_tokens').delete().eq('user_id', user?.id)
+    if (!confirm('Deseja desconectar o Fitbit? Seus dados sincronizados serão mantidos.')) return
+    await supabase.schema('fitbit').from('user_tokens').delete().eq('user_id', user?.id)
     refresh()
   }
 
@@ -46,10 +46,10 @@ export default function Settings() {
       </div>
 
       <div className="px-4 flex flex-col gap-4">
-        {/* Perfil */}
+        {/* Conta */}
         <Section title="Conta">
           <div className="flex items-center gap-4 py-1">
-            <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-xl font-bold text-whoop-green">
+            <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-xl font-bold text-bhr-green">
               {(user?.email?.[0] ?? 'U').toUpperCase()}
             </div>
             <div>
@@ -59,16 +59,16 @@ export default function Settings() {
           </div>
         </Section>
 
-        {/* WHOOP */}
-        <Section title="WHOOP">
+        {/* Fitbit */}
+        <Section title="Fitbit">
           <div className="flex items-center justify-between py-2">
             <div>
               <p className="text-sm font-medium">Status</p>
-              <p className={`text-xs mt-0.5 ${whoopConnected ? 'text-whoop-green' : 'text-gray-400'}`}>
-                {whoopConnected ? '● Conectado' : '○ Não conectado'}
+              <p className={`text-xs mt-0.5 ${fitbitConnected ? 'text-bhr-green' : 'text-gray-400'}`}>
+                {fitbitConnected ? '● Conectado' : '○ Não conectado'}
               </p>
             </div>
-            {whoopConnected ? (
+            {fitbitConnected ? (
               <button
                 onClick={handleDisconnect}
                 className="text-xs text-red-400 border border-red-400/20 rounded-lg px-3 py-1.5"
@@ -77,30 +77,30 @@ export default function Settings() {
               </button>
             ) : (
               <button
-                onClick={() => navigate('/conectar-whoop')}
-                className="text-xs text-whoop-green border border-whoop-green/30 rounded-lg px-3 py-1.5 font-medium"
+                onClick={() => navigate('/conectar-fitbit')}
+                className="text-xs text-bhr-green border border-bhr-green/30 rounded-lg px-3 py-1.5 font-medium"
               >
                 Conectar
               </button>
             )}
           </div>
 
-          {whoopError && (
+          {fitbitError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400 mb-2">
-              {whoopError}
+              {fitbitError}
             </div>
           )}
 
-          {whoopConnected && recentSleeps.length === 0 && (
+          {fitbitConnected && recentSleeps.length === 0 && (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-sm text-yellow-300 mb-3">
               <p className="font-medium mb-1">⚠️ Dados incompletos</p>
               <p className="text-xs text-yellow-400/80 leading-relaxed">
-                Seu token não inclui sono e recuperação. Desconecte e reconecte o WHOOP para obter todos os dados.
+                Seu token não inclui sono. Desconecte e reconecte o Fitbit para obter todos os dados.
               </p>
             </div>
           )}
 
-          {whoopConnected && (
+          {fitbitConnected && (
             <>
               <div className="border-t border-white/5 pt-3">
                 <p className="text-xs text-gray-500 mb-2">Última sincronização: {lastSync}</p>
@@ -108,12 +108,12 @@ export default function Settings() {
                   <p className="text-xs text-red-400 mb-2">{syncError}</p>
                 )}
                 {lastResult && (
-                  <p className="text-xs text-whoop-green mb-2">{lastResult}</p>
+                  <p className="text-xs text-bhr-green mb-2">{lastResult}</p>
                 )}
                 <button
                   onClick={sync}
                   disabled={syncing}
-                  className="w-full bg-whoop-green text-black font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+                  className="w-full bg-bhr-green text-black font-bold py-3 rounded-xl text-sm disabled:opacity-50"
                 >
                   {syncing ? 'Sincronizando...' : '↻ Sincronizar dados'}
                 </button>
@@ -125,9 +125,9 @@ export default function Settings() {
           )}
         </Section>
 
-        {/* Perfil WHOOP */}
+        {/* Perfil Fitbit */}
         {profile && (
-          <Section title="Perfil WHOOP">
+          <Section title="Perfil Fitbit">
             {[
               { label: 'Nome', value: profileName },
               { label: 'Altura', value: profile.height_meter ? `${(profile.height_meter * 100).toFixed(0)} cm` : null },
@@ -168,7 +168,7 @@ export default function Settings() {
         </button>
 
         <p className="text-center text-xs text-gray-600 pb-2">
-          WHOOP em Português · v1.0
+          Saúde BHR · v1.0
         </p>
       </div>
     </div>
