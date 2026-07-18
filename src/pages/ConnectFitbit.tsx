@@ -4,9 +4,17 @@ import { useAuth } from '../hooks/useAuth'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
-const FITBIT_OAUTH_URL = 'https://www.fitbit.com/oauth2/authorize'
+const GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/fitbit-auth-callback`
-const SCOPES = 'activity heartrate sleep profile oxygen_saturation'
+const SCOPES = [
+  'https://www.googleapis.com/auth/fitness.activity.read',
+  'https://www.googleapis.com/auth/fitness.heart_rate.read',
+  'https://www.googleapis.com/auth/fitness.sleep.read',
+  'https://www.googleapis.com/auth/fitness.body.read',
+  'https://www.googleapis.com/auth/fitness.oxygen_saturation.read',
+  'profile',
+  'email',
+].join(' ')
 
 export default function ConnectFitbit() {
   const { user } = useAuth()
@@ -20,14 +28,16 @@ export default function ConnectFitbit() {
     setError(null)
 
     const params = new URLSearchParams({
-      client_id: import.meta.env.VITE_FITBIT_CLIENT_ID as string,
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
       redirect_uri: CALLBACK_URL,
       response_type: 'code',
       scope: SCOPES,
+      access_type: 'offline',
+      prompt: 'consent',
       state: user.id,
     })
 
-    window.location.href = `${FITBIT_OAUTH_URL}?${params}`
+    window.location.href = `${GOOGLE_OAUTH_URL}?${params}`
   }
 
   return (
@@ -47,10 +57,9 @@ export default function ConnectFitbit() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold mb-2">Conectar Fitbit</h1>
+          <h1 className="text-2xl font-bold mb-2">Conectar Google Health</h1>
           <p className="text-gray-400 text-sm leading-relaxed">
-            Você será redirecionado para o Fitbit para autorizar o acesso aos seus dados.
-            Seus dados ficam armazenados de forma segura no seu banco de dados pessoal.
+            Você será redirecionado para o Google para autorizar o acesso aos seus dados de saúde (Fitbit Air sincronizado via Google Health).
           </p>
         </div>
 
@@ -59,10 +68,10 @@ export default function ConnectFitbit() {
             Dados que serão acessados
           </p>
           {[
-            'Recuperação (VFC, FCC, SpO₂)',
+            'Frequência cardíaca e FC de repouso',
+            'VFC e SpO₂',
             'Sono (duração, estágios, eficiência)',
-            'Atividade diária e calorias',
-            'Treinos e exercícios',
+            'Atividades e treinos',
             'Perfil básico',
           ].map(item => (
             <div key={item} className="flex items-center gap-2 py-1.5">
@@ -84,7 +93,7 @@ export default function ConnectFitbit() {
             disabled={loading}
             className="bg-bhr-green text-black font-bold py-4 rounded-xl text-base disabled:opacity-50 w-full"
           >
-            {loading ? 'Aguarde...' : 'Autorizar no Fitbit'}
+            {loading ? 'Aguarde...' : 'Autorizar no Google'}
           </button>
           <button
             onClick={() => navigate('/configuracoes')}

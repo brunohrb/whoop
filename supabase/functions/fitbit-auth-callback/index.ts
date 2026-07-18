@@ -1,15 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 
-const FITBIT_CLIENT_ID = Deno.env.get("FITBIT_CLIENT_ID")!
-const FITBIT_CLIENT_SECRET = Deno.env.get("FITBIT_CLIENT_SECRET")!
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!
+const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 const APP_URL = Deno.env.get("APP_URL") || "https://brunohrb.github.io/saude-bhr"
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/fitbit-auth-callback`
 
-const FITBIT_TOKEN_URL = "https://api.fitbit.com/oauth2/token"
-const FITBIT_PROFILE_URL = "https://api.fitbit.com/1/user/-/profile.json"
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
@@ -33,17 +33,15 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${APP_URL}/configuracoes?fitbit_error=usuario_invalido`)
   }
 
-  // Trocar código por tokens Fitbit (Basic auth obrigatório)
-  const basicAuth = btoa(`${FITBIT_CLIENT_ID}:${FITBIT_CLIENT_SECRET}`)
-  const tokenRes = await fetch(FITBIT_TOKEN_URL, {
+  // Trocar código por tokens Google OAuth2
+  const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Authorization": `Basic ${basicAuth}`,
-    },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
       redirect_uri: CALLBACK_URL,
     }),
   })
@@ -57,16 +55,13 @@ Deno.serve(async (req: Request) => {
   const tokens = await tokenRes.json()
   const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString()
 
-  // Buscar perfil do Fitbit
-  let fitbitProfile: Record<string, unknown> | null = null
+  // Buscar perfil do usuário Google
+  let googleProfile: Record<string, unknown> | null = null
   try {
-    const profileRes = await fetch(FITBIT_PROFILE_URL, {
+    const profileRes = await fetch(GOOGLE_USERINFO_URL, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
-    if (profileRes.ok) {
-      const body = await profileRes.json()
-      fitbitProfile = body.user ?? null
-    }
+    if (profileRes.ok) googleProfile = await profileRes.json()
   } catch (e) { console.error("Erro ao buscar perfil:", e) }
 
   const tokenRow = {
@@ -76,7 +71,7 @@ Deno.serve(async (req: Request) => {
     token_type: tokens.token_type ?? "Bearer",
     expires_at: expiresAt,
     scope: tokens.scope ?? null,
-    fitbit_user_id: tokens.user_id ?? fitbitProfile?.encodedId ?? null,
+    fitbit_user_id: googleProfile?.sub ?? null,
   }
 
   const { data: existing } = await supabase
@@ -116,20 +111,21 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  if (fitbitProfile) {
+  if (googleProfile) {
+    const nameParts = String(googleProfile.name ?? "").split(" ")
     const { error: profileErr } = await supabase
       .schema("fitbit")
       .from("profiles")
       .upsert(
         {
           user_id: userId,
-          fitbit_user_id: fitbitProfile.encodedId ?? null,
-          email: fitbitProfile.topBadges ? null : null, // Fitbit doesn't expose email via API
-          first_name: fitbitProfile.firstName ?? null,
-          last_name: fitbitProfile.lastName ?? null,
-          height_meter: fitbitProfile.height ? Number(fitbitProfile.height) / 100 : null,
-          weight_kilogram: fitbitProfile.weight ?? null,
-          max_heart_rate: null, // Not provided in basic profile
+          fitbit_user_id: googleProfile.sub ?? null,
+          email: googleProfile.email ?? null,
+          first_name: nameParts[0] ?? null,
+          last_name: nameParts.slice(1).join(" ") || null,
+          height_meter: null,
+          weight_kilogram: null,
+          max_heart_rate: null,
         },
         { onConflict: "user_id" }
       )
