@@ -125,7 +125,7 @@ export default function Previsao() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <div className="w-10 h-10 border-2 border-whoop-green border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-bhr-green border-t-transparent rounded-full animate-spin" />
         <p className="text-gray-500 text-sm">Buscando vento...</p>
       </div>
     )
@@ -136,7 +136,7 @@ export default function Previsao() {
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-8 text-center">
         <p className="text-4xl">🌬️</p>
         <p className="text-gray-400 text-sm">Não foi possível buscar os dados</p>
-        <button onClick={load} className="px-4 py-2 rounded-xl bg-whoop-green text-black font-bold text-sm">
+        <button onClick={load} className="px-4 py-2 rounded-xl bg-bhr-green text-black font-bold text-sm">
           Tentar novamente
         </button>
       </div>

@@ -183,7 +183,7 @@ export default function AIAnalysis() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'user' ? (
-              <div className="bg-whoop-green/20 border border-whoop-green/20 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
+              <div className="bg-bhr-green/20 border border-bhr-green/20 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
                 <p className="text-sm text-white">{msg.content}</p>
               </div>
             ) : (
@@ -192,7 +192,7 @@ export default function AIAnalysis() {
                   <>
                     <MarkdownView text={msg.content} />
                     {streaming && i === messages.length - 1 && (
-                      <span className="inline-block w-1.5 h-3.5 bg-whoop-green animate-pulse ml-0.5 rounded-sm" />
+                      <span className="inline-block w-1.5 h-3.5 bg-bhr-green animate-pulse ml-0.5 rounded-sm" />
                     )}
                   </>
                 ) : (
@@ -200,7 +200,7 @@ export default function AIAnalysis() {
                     {[0, 1, 2].map(j => (
                       <div
                         key={j}
-                        className="w-2 h-2 rounded-full bg-whoop-green animate-bounce"
+                        className="w-2 h-2 rounded-full bg-bhr-green animate-bounce"
                         style={{ animationDelay: `${j * 0.15}s` }}
                       />
                     ))}
@@ -241,13 +241,13 @@ export default function AIAnalysis() {
             placeholder="Pergunte sobre seus dados..."
             rows={1}
             disabled={streaming}
-            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 resize-none disabled:opacity-50 focus:outline-none focus:border-whoop-green/30"
+            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 resize-none disabled:opacity-50 focus:outline-none focus:border-bhr-green/30"
             style={{ maxHeight: '120px', overflowY: 'auto' }}
           />
           <button
             onClick={() => send()}
             disabled={!input.trim() || streaming}
-            className="bg-whoop-green text-black font-bold rounded-xl px-4 py-3 text-sm disabled:opacity-30 active:scale-95 transition-transform flex-shrink-0"
+            className="bg-bhr-green text-black font-bold rounded-xl px-4 py-3 text-sm disabled:opacity-30 active:scale-95 transition-transform flex-shrink-0"
           >
             ↑
           </button>
@@ -279,7 +279,7 @@ function MarkdownView({ text }: { text: string }) {
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(
         <div key={i} className="flex gap-2 text-xs text-gray-300 mb-1">
-          <span className="text-whoop-green flex-shrink-0 mt-0.5">•</span>
+          <span className="text-bhr-green flex-shrink-0 mt-0.5">•</span>
           <span>{renderInline(line.slice(2))}</span>
         </div>
       )

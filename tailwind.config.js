@@ -4,11 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        'whoop-green': '#00D4A0',
-        'whoop-yellow': '#F5C518',
-        'whoop-red': '#FF4444',
-        'whoop-blue': '#4FC3F7',
-        'whoop-purple': '#9C59D1',
+        'bhr-green': '#00D4A0',
+        'bhr-yellow': '#F5C518',
+        'bhr-red': '#FF4444',
+        'bhr-blue': '#4FC3F7',
+        'bhr-purple': '#9C59D1',
         'surface': '#1A1A1A',
         'surface-2': '#242424',
         'surface-3': '#2E2E2E',

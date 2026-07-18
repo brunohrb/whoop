@@ -11,28 +11,19 @@ export function useSync(onComplete?: () => void) {
     setError(null)
     setLastResult(null)
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('whoop-sync')
+      const { data, error: fnError } = await supabase.functions.invoke('fitbit-sync')
       if (fnError) throw fnError
-      const cycles = data?.synced_cycles ?? 0
+      const activities = data?.synced_activities ?? 0
       const sleeps = data?.synced_sleeps ?? 0
       const workouts = data?.synced_workouts ?? 0
       const recoveries = data?.synced_recoveries ?? 0
-
-      const apiSleeps = data?.api_sleep_count ?? 0
-      const apiWorkouts = data?.api_workout_count ?? 0
-      const apiRecoveries = data?.api_recovery_count ?? 0
       const errors = data?.errors ?? {}
 
-      const debug = data?.debug ?? {}
-      const httpErrors = [errors.sleep, errors.recovery, errors.workout].filter(Boolean)
+      const httpErrors = [errors.sleep, errors.recovery, errors.workout, errors.activity].filter(Boolean)
       if (httpErrors.length > 0) {
-        setError(`Erro da API WHOOP: ${httpErrors[0]}`)
-      } else if (cycles > 0 && apiSleeps === 0 && apiRecoveries === 0 && apiWorkouts === 0) {
-        const rawInfo = debug.sleep_raw ?? debug.recovery_raw ?? debug.workout_raw
-        const rawSnippet = rawInfo ? ` | API raw: ${String(rawInfo).slice(0, 120)}` : ''
-        setError(`⚠️ WHOOP retornou 0 registros de sono/recuperação/treino.${rawSnippet}`)
+        setError(`Erro da API Fitbit: ${httpErrors[0]}`)
       } else {
-        setLastResult(`✓ ${cycles} ciclos · ${sleeps} sonos · ${recoveries} recuperações · ${workouts} treinos`)
+        setLastResult(`✓ ${activities} atividades · ${sleeps} sonos · ${recoveries} recuperações · ${workouts} treinos`)
       }
       onComplete?.()
     } catch (err) {

@@ -219,7 +219,7 @@ export default function Sleep() {
           )}
           <button
             onClick={() => navigate('/ia?q=' + encodeURIComponent('Como foi meu sono? Analise meu desempenho, eficiência e fases do sono.'))}
-            className="mx-4 mt-3 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 bg-surface border border-whoop-green/20 rounded-2xl py-3 text-sm text-whoop-green font-medium active:scale-95 transition-transform"
+            className="mx-4 mt-3 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 bg-surface border border-bhr-green/20 rounded-2xl py-3 text-sm text-bhr-green font-medium active:scale-95 transition-transform"
           >
             🤖 Perguntar ao Coach
           </button>

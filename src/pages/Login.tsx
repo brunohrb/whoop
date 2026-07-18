@@ -17,7 +17,7 @@ export default function Login() {
       if (mode === 'magic') {
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: window.location.origin + '/whoop' },
+          options: { emailRedirectTo: window.location.origin + '/saude-bhr' },
         })
         if (error) throw error
         setMessage({ text: 'Link enviado! Verifique seu email.', type: 'success' })
@@ -45,12 +45,12 @@ export default function Login() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
           <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center mb-4">
-            <svg className="w-10 h-10 text-whoop-green" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/>
+            <svg className="w-10 h-10 text-bhr-green" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold">WHOOP em Português</h1>
-          <p className="text-gray-400 text-sm mt-1">Seu WHOOP, no seu idioma</p>
+          <h1 className="text-2xl font-bold">Saúde BHR</h1>
+          <p className="text-gray-400 text-sm mt-1">Sua saúde, no seu idioma</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -82,7 +82,7 @@ export default function Login() {
           {message && (
             <div className={`rounded-xl p-3 text-sm ${
               message.type === 'success'
-                ? 'bg-whoop-green/10 text-whoop-green border border-whoop-green/20'
+                ? 'bg-bhr-green/10 text-bhr-green border border-bhr-green/20'
                 : 'bg-red-500/10 text-red-400 border border-red-500/20'
             }`}>
               {message.text}
@@ -92,7 +92,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-whoop-green text-black font-bold py-3.5 rounded-xl text-base disabled:opacity-50 transition-opacity"
+            className="bg-bhr-green text-black font-bold py-3.5 rounded-xl text-base disabled:opacity-50 transition-opacity"
           >
             {loading
               ? 'Aguarde...'

@@ -1,7 +1,7 @@
-export interface WhoopProfile {
+export interface FitbitProfile {
   id: string
   user_id: string
-  whoop_user_id: number | null
+  fitbit_user_id: string | null
   email: string | null
   first_name: string | null
   last_name: string | null
@@ -10,10 +10,10 @@ export interface WhoopProfile {
   max_heart_rate: number | null
 }
 
-export interface WhoopCycle {
+export interface FitbitActivity {
   id: string
   user_id: string
-  whoop_cycle_id: number
+  fitbit_activity_id: string
   start_time: string
   end_time: string | null
   timezone: string | null
@@ -24,11 +24,11 @@ export interface WhoopCycle {
   max_heart_rate: number | null
 }
 
-export interface WhoopRecovery {
+export interface FitbitRecovery {
   id: string
   user_id: string
-  cycle_id: number
-  sleep_id: number | null
+  cycle_id: string
+  sleep_id: string | null
   score_state: string | null
   recovery_score: number | null
   resting_heart_rate: number | null
@@ -37,10 +37,10 @@ export interface WhoopRecovery {
   skin_temp_celsius: number | null
 }
 
-export interface WhoopSleep {
+export interface FitbitSleep {
   id: string
   user_id: string
-  whoop_sleep_id: number
+  fitbit_sleep_id: string
   start_time: string
   end_time: string | null
   timezone: string | null
@@ -64,10 +64,10 @@ export interface WhoopSleep {
   sleep_efficiency_percentage: number | null
 }
 
-export interface WhoopWorkout {
+export interface FitbitWorkout {
   id: string
   user_id: string
-  whoop_workout_id: number
+  fitbit_workout_id: string
   start_time: string
   end_time: string | null
   timezone: string | null
@@ -120,3 +120,10 @@ export interface BloodWork {
   notes: string | null
   created_at: string
 }
+
+// Legacy aliases for backward compatibility with existing DB column names
+export type WhoopProfile = FitbitProfile
+export type WhoopCycle = FitbitActivity
+export type WhoopRecovery = FitbitRecovery
+export type WhoopSleep = FitbitSleep
+export type WhoopWorkout = FitbitWorkout

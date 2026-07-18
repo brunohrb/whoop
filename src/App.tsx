@@ -11,10 +11,10 @@ import Health from './pages/Health'
 import AIAnalysis from './pages/AIAnalysis'
 import Treino from './pages/Treino'
 import Previsao from './pages/Previsao'
-import ConnectWhoop from './pages/ConnectWhoop'
+import ConnectFitbit from './pages/ConnectFitbit'
 import BottomNav from './components/BottomNav'
 import LoadingScreen from './components/LoadingScreen'
-import { useWhoopData } from './hooks/useWhoopData'
+import { useFitbitData } from './hooks/useFitbitData'
 import { useSync } from './hooks/useSync'
 
 function UpdateBanner() {
@@ -41,7 +41,7 @@ function UpdateBanner() {
   if (!show) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-whoop-green text-black text-sm font-bold px-4 py-3 flex items-center justify-between safe-top">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-bhr-green text-black text-sm font-bold px-4 py-3 flex items-center justify-between safe-top">
       <span>Nova versão disponível!</span>
       <button
         onClick={async () => {
@@ -50,7 +50,7 @@ function UpdateBanner() {
           const reg = await navigator.serviceWorker.getRegistration()
           reg?.waiting?.postMessage({ type: 'SKIP_WAITING' })
         }}
-        className="bg-black text-whoop-green px-3 py-1 rounded-lg text-xs font-bold"
+        className="bg-black text-bhr-green px-3 py-1 rounded-lg text-xs font-bold"
       >
         Atualizar
       </button>
@@ -59,7 +59,7 @@ function UpdateBanner() {
 }
 
 function AppWithAutoSync() {
-  const { syncStatus, refresh } = useWhoopData()
+  const { syncStatus, refresh } = useFitbitData()
   const { sync } = useSync(refresh)
 
   useEffect(() => {
@@ -89,7 +89,8 @@ function AppWithAutoSync() {
           <Route path="/treino" element={<Treino />} />
           <Route path="/previsao" element={<Previsao />} />
           <Route path="/configuracoes" element={<Settings />} />
-          <Route path="/conectar-whoop" element={<ConnectWhoop />} />
+          <Route path="/conectar-fitbit" element={<ConnectFitbit />} />
+          <Route path="/conectar-whoop" element={<Navigate to="/conectar-fitbit" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
@@ -105,7 +106,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <BrowserRouter basename="/whoop">
+      <BrowserRouter basename="/saude-bhr">
         <Routes>
           <Route path="*" element={<Login />} />
         </Routes>
@@ -114,7 +115,7 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter basename="/whoop">
+    <BrowserRouter basename="/saude-bhr">
       <AppWithAutoSync />
     </BrowserRouter>
   )

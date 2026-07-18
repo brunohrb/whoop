@@ -20,7 +20,7 @@ export default function Recovery() {
 
   const selectedCycle = recentCycles[dayIndex] ?? null
   const selectedRecovery = selectedCycle
-    ? recentRecoveries.find(r => r.cycle_id === selectedCycle.whoop_cycle_id) ?? null
+    ? recentRecoveries.find(r => r.cycle_id === selectedCycle.fitbit_activity_id) ?? null
     : null
 
   const score = selectedRecovery?.recovery_score ?? null
@@ -32,7 +32,7 @@ export default function Recovery() {
     .slice(0, 14)
     .reverse()
     .map(cycle => {
-      const rec = recentRecoveries.find(r => r.cycle_id === cycle.whoop_cycle_id)
+      const rec = recentRecoveries.find(r => r.cycle_id === cycle.fitbit_activity_id)
       return {
         date: formatShortDate(cycle.start_time),
         score: rec?.recovery_score ?? 0,
@@ -44,7 +44,7 @@ export default function Recovery() {
     .slice(0, 30)
     .reverse()
     .map(cycle => {
-      const rec = recentRecoveries.find(r => r.cycle_id === cycle.whoop_cycle_id)
+      const rec = recentRecoveries.find(r => r.cycle_id === cycle.fitbit_activity_id)
       return {
         date: formatShortDate(cycle.start_time),
         hrv: rec?.hrv_rmssd_milli ? Math.round(rec.hrv_rmssd_milli) : null,
@@ -226,7 +226,7 @@ export default function Recovery() {
           )}
           <button
             onClick={() => navigate('/ia?q=' + encodeURIComponent('Como está minha recuperação hoje? Analise minha VFC, FC de repouso e score geral.'))}
-            className="mx-4 mt-3 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 bg-surface border border-whoop-green/20 rounded-2xl py-3 text-sm text-whoop-green font-medium active:scale-95 transition-transform"
+            className="mx-4 mt-3 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 bg-surface border border-bhr-green/20 rounded-2xl py-3 text-sm text-bhr-green font-medium active:scale-95 transition-transform"
           >
             🤖 Perguntar ao Coach
           </button>
