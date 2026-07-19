@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
-
 const GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
-const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/fitbit-auth-callback`
+const CALLBACK_URL = 'https://hisbbtddpoxufvghxqtm.supabase.co/functions/v1/fitbit-auth-callback'
 const SCOPES = [
   'https://www.googleapis.com/auth/fitness.activity.read',
   'https://www.googleapis.com/auth/fitness.heart_rate.read',
