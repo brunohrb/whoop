@@ -1093,10 +1093,10 @@ function TimerTab() {
   function sendNotification() {
     if (!('Notification' in window)) return
     if (Notification.permission === 'granted') {
-      new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/saude-bhr/icons/icon.svg', silent: false })
+      new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg', silent: false })
     } else if (Notification.permission !== 'denied') {
       Notification.requestPermission().then(p => {
-        if (p === 'granted') new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/saude-bhr/icons/icon.svg' })
+        if (p === 'granted') new Notification('Timer concluído!', { body: 'Hora de voltar para o treino 💪', icon: '/whoop/icons/icon.svg' })
       })
     }
   }

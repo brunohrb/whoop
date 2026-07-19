@@ -17,7 +17,7 @@ export default function Login() {
       if (mode === 'magic') {
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: window.location.origin + '/saude-bhr' },
+          options: { emailRedirectTo: window.location.origin + '/whoop' },
         })
         if (error) throw error
         setMessage({ text: 'Link enviado! Verifique seu email.', type: 'success' })
