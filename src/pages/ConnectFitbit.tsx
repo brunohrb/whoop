@@ -26,7 +26,7 @@ export default function ConnectFitbit() {
     setError(null)
 
     const params = new URLSearchParams({
-      client_id: (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || '390544242490-6qc6kiiq9s31r8uauiko9jdrqih7ring.apps.googleusercontent.com',
+      client_id: '390544242490-6qc6kiiq9s31r8uauiko9jdrqih7ring.apps.googleusercontent.com',
       redirect_uri: CALLBACK_URL,
       response_type: 'code',
       scope: SCOPES,
