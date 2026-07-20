@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useFitbitData } from '../hooks/useFitbitData'
 import { useSync } from '../hooks/useSync'
-import { supabase, supabaseFitbit } from '../lib/supabase'
+import { supabaseFitbit } from '../lib/supabase'
 
 export default function Settings() {
   const { user, signOut } = useAuth()
