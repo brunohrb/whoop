@@ -1,11 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts"
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-const APP_URL = Deno.env.get("APP_URL") || "https://brunohrb.github.io/saude-bhr"
+const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL")!
+const APP_URL = Deno.env.get("APP_URL") || "https://brunohrb.github.io/whoop"
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/fitbit-auth-callback`
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -33,7 +35,6 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${APP_URL}/configuracoes?fitbit_error=usuario_invalido`)
   }
 
-  // Trocar código por tokens Google OAuth2
   const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -55,7 +56,6 @@ Deno.serve(async (req: Request) => {
   const tokens = await tokenRes.json()
   const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString()
 
-  // Buscar perfil do usuário Google
   let googleProfile: Record<string, unknown> | null = null
   try {
     const profileRes = await fetch(GOOGLE_USERINFO_URL, {
@@ -64,72 +64,58 @@ Deno.serve(async (req: Request) => {
     if (profileRes.ok) googleProfile = await profileRes.json()
   } catch (e) { console.error("Erro ao buscar perfil:", e) }
 
-  const tokenRow = {
-    user_id: userId,
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token ?? null,
-    token_type: tokens.token_type ?? "Bearer",
-    expires_at: expiresAt,
-    scope: tokens.scope ?? null,
-    fitbit_user_id: googleProfile?.sub ?? null,
-  }
+  const pool = new Pool(SUPABASE_DB_URL, 1, true)
+  const conn = await pool.connect()
 
-  const { data: existing } = await supabase
-    .schema("fitbit")
-    .from("user_tokens")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle()
-
-  let tokenSaveErr
-  if (existing) {
-    const { error } = await supabase
-      .schema("fitbit")
-      .from("user_tokens")
-      .update({
-        access_token: tokenRow.access_token,
-        refresh_token: tokenRow.refresh_token,
-        token_type: tokenRow.token_type,
-        expires_at: tokenRow.expires_at,
-        scope: tokenRow.scope,
-        fitbit_user_id: tokenRow.fitbit_user_id,
-      })
-      .eq("user_id", userId)
-    tokenSaveErr = error
-  } else {
-    const { error } = await supabase
-      .schema("fitbit")
-      .from("user_tokens")
-      .insert(tokenRow)
-    tokenSaveErr = error
-  }
-
-  if (tokenSaveErr) {
-    console.error("Erro ao salvar tokens:", JSON.stringify(tokenSaveErr))
-    return Response.redirect(
-      `${APP_URL}/configuracoes?fitbit_error=${encodeURIComponent(`erro_salvar_tokens:${tokenSaveErr.code}:${tokenSaveErr.message}`)}`
+  try {
+    await conn.queryObject(
+      `INSERT INTO fitbit.user_tokens (user_id, access_token, refresh_token, token_type, expires_at, scope, fitbit_user_id)
+       VALUES ($1::uuid, $2, $3, $4, $5::timestamptz, $6, $7)
+       ON CONFLICT (user_id) DO UPDATE SET
+         access_token = EXCLUDED.access_token,
+         refresh_token = EXCLUDED.refresh_token,
+         token_type = EXCLUDED.token_type,
+         expires_at = EXCLUDED.expires_at,
+         scope = EXCLUDED.scope,
+         fitbit_user_id = EXCLUDED.fitbit_user_id`,
+      [
+        userId,
+        tokens.access_token,
+        tokens.refresh_token ?? null,
+        tokens.token_type ?? "Bearer",
+        expiresAt,
+        tokens.scope ?? null,
+        googleProfile?.sub ?? null,
+      ]
     )
-  }
 
-  if (googleProfile) {
-    const nameParts = String(googleProfile.name ?? "").split(" ")
-    const { error: profileErr } = await supabase
-      .schema("fitbit")
-      .from("profiles")
-      .upsert(
-        {
-          user_id: userId,
-          fitbit_user_id: googleProfile.sub ?? null,
-          email: googleProfile.email ?? null,
-          first_name: nameParts[0] ?? null,
-          last_name: nameParts.slice(1).join(" ") || null,
-          height_meter: null,
-          weight_kilogram: null,
-          max_heart_rate: null,
-        },
-        { onConflict: "user_id" }
+    if (googleProfile) {
+      const nameParts = String(googleProfile.name ?? "").split(" ")
+      await conn.queryObject(
+        `INSERT INTO fitbit.profiles (user_id, fitbit_user_id, email, first_name, last_name, height_meter, weight_kilogram, max_heart_rate)
+         VALUES ($1::uuid, $2, $3, $4, $5, null, null, null)
+         ON CONFLICT (user_id) DO UPDATE SET
+           fitbit_user_id = EXCLUDED.fitbit_user_id,
+           email = EXCLUDED.email,
+           first_name = EXCLUDED.first_name,
+           last_name = EXCLUDED.last_name`,
+        [
+          userId,
+          googleProfile.sub ?? null,
+          googleProfile.email ?? null,
+          nameParts[0] ?? null,
+          nameParts.slice(1).join(" ") || null,
+        ]
       )
-    if (profileErr) console.error("Erro ao salvar perfil:", JSON.stringify(profileErr))
+    }
+  } catch (dbErr) {
+    console.error("Erro ao salvar no banco:", dbErr)
+    return Response.redirect(
+      `${APP_URL}/configuracoes?fitbit_error=${encodeURIComponent(`erro_db:${(dbErr as Error).message}`)}`
+    )
+  } finally {
+    conn.release()
+    await pool.end()
   }
 
   return Response.redirect(`${APP_URL}/configuracoes?fitbit_connected=true`)
