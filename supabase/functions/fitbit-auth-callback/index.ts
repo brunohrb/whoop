@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     await conn.queryObject(
-      `INSERT INTO user_tokens (user_id, access_token, refresh_token, token_type, expires_at, scope, fitbit_user_id)
+      `INSERT INTO fitbit.user_tokens (user_id, access_token, refresh_token, token_type, expires_at, scope, fitbit_user_id)
        VALUES ($1::uuid, $2, $3, $4, $5::timestamptz, $6, $7)
        ON CONFLICT (user_id) DO UPDATE SET
          access_token = EXCLUDED.access_token,
@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
     if (googleProfile) {
       const nameParts = String(googleProfile.name ?? "").split(" ")
       await conn.queryObject(
-        `INSERT INTO profiles (user_id, fitbit_user_id, email, first_name, last_name, height_meter, weight_kilogram, max_heart_rate)
+        `INSERT INTO fitbit.profiles (user_id, fitbit_user_id, email, first_name, last_name, height_meter, weight_kilogram, max_heart_rate)
          VALUES ($1::uuid, $2, $3, $4, $5, null, null, null)
          ON CONFLICT (user_id) DO UPDATE SET
            fitbit_user_id = EXCLUDED.fitbit_user_id,

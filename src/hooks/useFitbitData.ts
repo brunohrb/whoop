@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabaseFitbit as supabase } from '../lib/supabase'
 import type { FitbitActivity, FitbitRecovery, FitbitSleep, FitbitWorkout, FitbitProfile, SyncStatus, BloodWork, JournalEntry } from '../types'
 
 interface FitbitData {
