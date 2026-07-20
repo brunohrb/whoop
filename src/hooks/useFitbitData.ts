@@ -55,14 +55,14 @@ export function useFitbitData(): FitbitData {
         { data: bloodWorkData },
         { data: journalData },
       ] = await Promise.all([
-        supabase.schema('fitbit').from('user_tokens').select('fitbit_user_id').single(),
-        supabase.schema('fitbit').from('profiles').select('*').single(),
-        supabase.schema('fitbit').from('cycles').select('*').order('start_time', { ascending: false }).limit(30),
-        supabase.schema('fitbit').from('workouts').select('*').order('start_time', { ascending: false }).limit(20),
-        supabase.schema('fitbit').from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
-        supabase.schema('fitbit').from('sync_status').select('*').single(),
-        supabase.schema('fitbit').from('blood_work').select('*').order('test_date', { ascending: false }).limit(200),
-        supabase.schema('fitbit').from('journal').select('*').order('entry_date', { ascending: false }).limit(90),
+        supabase.from('user_tokens').select('fitbit_user_id').single(),
+        supabase.from('profiles').select('*').single(),
+        supabase.from('cycles').select('*').order('start_time', { ascending: false }).limit(30),
+        supabase.from('workouts').select('*').order('start_time', { ascending: false }).limit(20),
+        supabase.from('sleep').select('*').order('start_time', { ascending: false }).limit(60),
+        supabase.from('sync_status').select('*').single(),
+        supabase.from('blood_work').select('*').order('test_date', { ascending: false }).limit(200),
+        supabase.from('journal').select('*').order('entry_date', { ascending: false }).limit(90),
       ])
 
       const cycles = cyclesData ?? []
@@ -79,7 +79,6 @@ export function useFitbitData(): FitbitData {
       if (cycles.length > 0) {
         const cycleIds = cycles.map(c => c.fitbit_activity_id)
         const { data: recoveryData } = await supabase
-          .schema('fitbit')
           .from('recovery')
           .select('*')
           .in('cycle_id', cycleIds)

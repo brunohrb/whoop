@@ -27,7 +27,7 @@ export default function Settings() {
 
   const handleDisconnect = async () => {
     if (!confirm('Deseja desconectar o Fitbit? Seus dados sincronizados serão mantidos.')) return
-    await supabase.schema('fitbit').from('user_tokens').delete().eq('user_id', user?.id)
+    await supabase.from('user_tokens').delete().eq('user_id', user?.id)
     refresh()
   }
 
