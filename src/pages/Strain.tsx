@@ -31,10 +31,10 @@ export default function Strain() {
 
   const cycleWorkouts = recentWorkouts.filter(w => {
     if (!latestCycle) return false
-    const wStart = new Date(w.start_time).getTime()
-    const cStart = new Date(latestCycle.start_time).getTime()
-    const cEnd = latestCycle.end_time ? new Date(latestCycle.end_time).getTime() : Date.now()
-    return wStart >= cStart && wStart <= cEnd
+    // Compare by local date string to avoid UTC offset issues
+    const wDate = new Date(w.start_time).toLocaleDateString('pt-BR')
+    const cDate = new Date(latestCycle.start_time).toLocaleDateString('pt-BR')
+    return wDate === cDate
   })
 
   const chartData = recentCycles
