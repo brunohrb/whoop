@@ -1,87 +1,173 @@
 import { useState, useRef, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useFitbitData } from '../hooks/useFitbitData'
 import { supabase } from '../lib/supabase'
+import { recoveryColor } from '../utils/whoop'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
-const QUICK_PROMPTS = [
-  'Faça um relatório completo de saúde',
-  'Por que minha recuperação está baixa?',
-  'O que devo treinar hoje?',
-  'Como está meu sono esta semana?',
-  'Analise minha HRV e FC de repouso',
-]
+// ─── SparklineMini ───────────────────────────────────────────────────────────
+
+function SparklineMini({
+  values,
+  color = '#00D4A0',
+  height = 36,
+}: {
+  values: number[]
+  color?: string
+  height?: number
+}) {
+  if (values.length < 2) return <div style={{ height }} />
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const W = 110
+  const H = height
+  const pts = values.map((v, i) => ({
+    x: (i / (values.length - 1)) * W,
+    y: H - ((v - min) / range) * (H - 8) - 4,
+  }))
+  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ overflow: 'visible' }}
+    >
+      <path
+        d={d}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.6}
+      />
+      {pts.map((p, i) => (
+        <circle
+          key={i}
+          cx={p.x}
+          cy={p.y}
+          r={i === pts.length - 1 ? 4 : 3}
+          fill={i === pts.length - 1 ? color : 'transparent'}
+          stroke={color}
+          strokeWidth={1.5}
+        />
+      ))}
+    </svg>
+  )
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const DAY_ABBR = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'] // Dom Seg Ter Qua Qui Sex Sab
+
+function getLast7DayLabels(): string[] {
+  const today = new Date().getDay()
+  return Array.from({ length: 7 }, (_, i) => DAY_ABBR[(today - 6 + i + 7) % 7])
+}
+
+function recoveryStatusLabel(score: number | null | undefined): { label: string; color: string } {
+  if (score == null) return { label: '—', color: '#555' }
+  if (score >= 67) return { label: 'Ótimo', color: '#00D4A0' }
+  if (score >= 34) return { label: 'Regular', color: '#F5C518' }
+  return { label: 'Baixo', color: '#FF4444' }
+}
+
+function sleepStatusLabel(perf: number | null | undefined): { label: string; color: string } {
+  if (perf == null) return { label: '—', color: '#555' }
+  if (perf >= 85) return { label: 'Ótimo', color: '#00D4A0' }
+  if (perf >= 70) return { label: 'Bom', color: '#4FC3F7' }
+  if (perf >= 50) return { label: 'Regular', color: '#F5C518' }
+  return { label: 'Ruim', color: '#FF4444' }
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AIAnalysis() {
+  const { recentRecoveries, recentSleeps, loading: dataLoading } = useFitbitData()
+
+  const [briefing, setBriefing] = useState<string>('')
+  const [briefLoading, setBriefLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [error, setError] = useState('')
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const autoSentRef = useRef(false)
-  const location = useLocation()
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const briefFetched = useRef(false)
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [messages])
+  const dayLabels = getLast7DayLabels()
 
-  useEffect(() => {
-    if (autoSentRef.current) return
-    const q = new URLSearchParams(location.search).get('q')
-    if (q) {
-      autoSentRef.current = true
-      send(q)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Last 7 recovery scores (oldest → newest) — data comes desc from DB, so reverse
+  const last7Recovery = [...recentRecoveries]
+    .sort((a, b) => String(a.cycle_id).localeCompare(String(b.cycle_id)))
+    .slice(-7)
 
-  async function send(text?: string) {
-    const msg = (text ?? input).trim()
-    if (!msg || streaming) return
+  // Last 7 sleep performances (oldest → newest)
+  const last7Sleep = [...recentSleeps]
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    .slice(-7)
 
-    setError('')
-    setInput('')
-    setStreaming(true)
+  const latestRecoveryScore = last7Recovery[last7Recovery.length - 1]?.recovery_score ?? null
+  const latestSleepPerf = last7Sleep[last7Sleep.length - 1]?.sleep_performance_percentage ?? null
 
-    const userMessage: Message = { role: 'user', content: msg }
-    const history = [...messages, userMessage]
-    setMessages([...history, { role: 'assistant', content: '' }])
+  const recoveryValues = last7Recovery.map((r) => r.recovery_score ?? 0)
+  const sleepValues = last7Sleep.map((s) => s.sleep_performance_percentage ?? 0)
 
+  const recovStat = recoveryStatusLabel(latestRecoveryScore)
+  const sleepStat = sleepStatusLabel(latestSleepPerf)
+
+  // ── Send function ──────────────────────────────────────────────────────────
+
+  async function send(text: string, isBrief = false) {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      setError('Sessão expirada')
-      setStreaming(false)
-      return
+    if (!session) return
+
+    const history: Message[] = isBrief
+      ? [{ role: 'user', content: text }]
+      : [...messages, { role: 'user', content: text }]
+
+    if (!isBrief) {
+      setMessages(history)
+      setInput('')
     }
 
-    const controller = new AbortController()
-    abortRef.current = controller
+    if (isBrief) {
+      setBriefLoading(true)
+    } else {
+      setStreaming(true)
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+    }
 
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/health-ai`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/health-ai`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ messages: history }),
-        signal: controller.signal,
+        body: JSON.stringify({
+          messages: history,
+          mode: isBrief ? 'brief' : 'chat',
+        }),
       })
 
-      if (!resp.ok) {
-        const errText = await resp.text()
-        throw new Error(errText || `Erro ${resp.status}`)
+      if (!res.ok || !res.body) {
+        const err = await res.text()
+        console.error('health-ai error:', err)
+        if (isBrief) setBriefLoading(false)
+        else setStreaming(false)
+        return
       }
 
-      const reader = resp.body!.getReader()
+      const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      let accumulated = ''
       let buffer = ''
 
       while (true) {
@@ -94,160 +180,271 @@ export default function AIAnalysis() {
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
-          const raw = line.slice(6).trim()
-          if (raw === '[DONE]') continue
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') continue
           try {
-            const evt = JSON.parse(raw)
-            if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-              setMessages(m => {
-                const updated = [...m]
-                updated[updated.length - 1] = {
-                  role: 'assistant',
-                  content: updated[updated.length - 1].content + evt.delta.text,
-                }
-                return updated
-              })
+            const parsed = JSON.parse(data)
+            if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+              accumulated += parsed.delta.text
+              if (isBrief) {
+                setBriefing(accumulated)
+              } else {
+                setMessages((prev) => {
+                  const updated = [...prev]
+                  updated[updated.length - 1] = { role: 'assistant', content: accumulated }
+                  return updated
+                })
+              }
             }
-          } catch { /* ignore malformed chunks */ }
+          } catch {
+            // skip malformed SSE lines
+          }
         }
       }
-    } catch (e: unknown) {
-      if ((e as Error).name !== 'AbortError') {
-        setError((e as Error).message ?? 'Erro desconhecido')
-        setMessages(m => m.slice(0, -1))
-      }
+    } catch (err) {
+      console.error('Stream error:', err)
     } finally {
-      setStreaming(false)
+      if (isBrief) setBriefLoading(false)
+      else setStreaming(false)
     }
   }
 
-  function stop() {
-    abortRef.current?.abort()
-    setStreaming(false)
+  // Auto-fetch briefing on mount (after data loads)
+  useEffect(() => {
+    if (!dataLoading && !briefFetched.current) {
+      briefFetched.current = true
+      send('brief', true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoading])
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  function handleSend() {
+    const text = input.trim()
+    if (!text || streaming) return
+    send(text, false)
   }
 
-  function clear() {
-    if (streaming) stop()
-    setMessages([])
-    setError('')
+  function handleQuickPrompt(prompt: string) {
+    setInput(prompt)
+    send(prompt, false)
   }
+
+  function focusInput() {
+    inputRef.current?.focus()
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: '#0a0014', color: '#fff', fontFamily: 'system-ui, sans-serif' }}
+    >
       {/* Header */}
-      <div className="px-5 pt-14 pb-3 safe-top flex-shrink-0 flex items-center justify-between border-b border-white/5">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xl">🤖</span>
-            <h1 className="text-xl font-bold">WHOOP Coach</h1>
-          </div>
-          <p className="text-xs text-gray-500">IA com acesso aos seus dados reais</p>
+      <div className="px-5 pt-10 pb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span style={{ color: '#00D4A0', fontSize: 20 }}>✦</span>
+          <h1 className="text-2xl font-bold tracking-tight">Coach</h1>
         </div>
-        {messages.length > 0 && (
-          <button
-            onClick={clear}
-            className="text-xs text-gray-500 border border-white/10 rounded-lg px-3 py-1.5"
-          >
-            Nova conversa
-          </button>
-        )}
+        <p style={{ color: '#9CA3AF', fontSize: 13 }}>Com IA e seus dados reais</p>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        {messages.length === 0 && (
-          <>
-            <div className="text-center mt-6 mb-4">
-              <div className="text-4xl mb-3">🧬</div>
-              <p className="text-gray-300 font-semibold text-sm mb-1">Olá! Sou seu WHOOP Coach</p>
-              <p className="text-gray-500 text-xs leading-relaxed px-4">
-                Tenho acesso a todos os seus dados — recuperação, sono, esforço e exames. Pergunte qualquer coisa.
-              </p>
-            </div>
+      {/* Briefing Card */}
+      <div className="mx-4 mb-4 rounded-2xl p-5" style={{ background: '#16002a' }}>
+        {briefLoading || (dataLoading && !briefing) ? (
+          <div className="flex gap-2 items-center py-4">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: '#00D4A0',
+                  display: 'inline-block',
+                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }}
+              />
+            ))}
+            <style>{`@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-8px)} }`}</style>
+          </div>
+        ) : briefing ? (
+          <p className="text-lg leading-relaxed" style={{ color: '#F3F4F6' }}>
+            {briefing}
+          </p>
+        ) : null}
 
+        {/* Metric Cards */}
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          {/* Recovery Card */}
+          <div className="rounded-xl p-3" style={{ background: '#0a001a' }}>
+            <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>Recuperação</p>
+            <p className="text-2xl font-bold mb-1" style={{ color: recoveryColor(latestRecoveryScore) }}>
+              {latestRecoveryScore != null ? `${latestRecoveryScore}%` : '—'}
+            </p>
+            <SparklineMini values={recoveryValues} color={recoveryColor(latestRecoveryScore)} height={36} />
+            <div className="flex justify-between mt-1">
+              {dayLabels.map((d, i) => (
+                <span key={i} style={{ color: '#6B7280', fontSize: 9 }}>{d}</span>
+              ))}
+            </div>
+            <div
+              className="mt-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: recovStat.color + '22', color: recovStat.color }}
+            >
+              {recovStat.label}
+            </div>
+          </div>
+
+          {/* Sleep Card */}
+          <div className="rounded-xl p-3" style={{ background: '#0a001a' }}>
+            <p className="text-xs mb-2" style={{ color: '#9CA3AF' }}>Sono</p>
+            <p className="text-2xl font-bold mb-1" style={{ color: '#9C59D1' }}>
+              {latestSleepPerf != null ? `${latestSleepPerf}%` : '—'}
+            </p>
+            <SparklineMini values={sleepValues} color="#9C59D1" height={36} />
+            <div className="flex justify-between mt-1">
+              {dayLabels.map((d, i) => (
+                <span key={i} style={{ color: '#6B7280', fontSize: 9 }}>{d}</span>
+              ))}
+            </div>
+            <div
+              className="mt-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: sleepStat.color + '22', color: sleepStat.color }}
+            >
+              {sleepStat.label}
+            </div>
+          </div>
+        </div>
+
+        {/* Action row */}
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={focusInput}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"
+            style={{ background: '#1a0030', color: '#00D4A0', border: '1px solid #00D4A022' }}
+          >
+            <span>✦</span> Responder
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFeedback('up')}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-base"
+              style={{
+                background: feedback === 'up' ? '#00D4A022' : '#1a0030',
+                border: '1px solid #ffffff11',
+              }}
+              title="Útil"
+            >
+              👍
+            </button>
+            <button
+              onClick={() => setFeedback('down')}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-base"
+              style={{
+                background: feedback === 'down' ? '#FF444422' : '#1a0030',
+                border: '1px solid #ffffff11',
+              }}
+              title="Não útil"
+            >
+              👎
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Chat messages */}
+      <div className="flex-1 overflow-y-auto px-4 pb-2">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className="max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+              style={
+                msg.role === 'user'
+                  ? { background: '#00D4A0', color: '#000', fontWeight: 500 }
+                  : { background: '#16002a', color: '#F3F4F6' }
+              }
+            >
+              {msg.content || (
+                <span className="inline-flex gap-1">
+                  {[0, 1, 2].map((j) => (
+                    <span
+                      key={j}
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{
+                        background: '#9CA3AF',
+                        display: 'inline-block',
+                        animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite`,
+                      }}
+                    />
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        <div ref={chatEndRef} />
+
+        {/* Quick prompts — shown only when no chat yet */}
+        {messages.length === 0 && (
+          <div className="mt-2 mb-4">
+            <p className="text-xs mb-3" style={{ color: '#6B7280' }}>Sugestões</p>
             <div className="flex flex-col gap-2">
-              {QUICK_PROMPTS.map(prompt => (
+              {[
+                'O que devo treinar hoje?',
+                'Como melhorar meu sono?',
+                'Analise minha tendência de recuperação',
+                'Quais exames devo fazer?',
+              ].map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => send(prompt)}
-                  disabled={streaming}
-                  className="text-left bg-surface rounded-xl px-4 py-3 text-sm text-gray-300 border border-white/5 active:scale-95 transition-transform"
+                  onClick={() => handleQuickPrompt(prompt)}
+                  className="text-left px-4 py-3 rounded-xl text-sm"
+                  style={{ background: '#16002a', color: '#D1D5DB', border: '1px solid #ffffff0d' }}
                 >
                   {prompt}
                 </button>
               ))}
             </div>
-          </>
-        )}
-
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'user' ? (
-              <div className="bg-bhr-green/20 border border-bhr-green/20 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
-                <p className="text-sm text-white">{msg.content}</p>
-              </div>
-            ) : (
-              <div className="bg-surface rounded-2xl rounded-tl-sm px-4 py-3 max-w-[92%]">
-                {msg.content ? (
-                  <>
-                    <MarkdownView text={msg.content} />
-                    {streaming && i === messages.length - 1 && (
-                      <span className="inline-block w-1.5 h-3.5 bg-bhr-green animate-pulse ml-0.5 rounded-sm" />
-                    )}
-                  </>
-                ) : (
-                  <div className="flex gap-1 py-1">
-                    {[0, 1, 2].map(j => (
-                      <div
-                        key={j}
-                        className="w-2 h-2 rounded-full bg-bhr-green animate-bounce"
-                        style={{ animationDelay: `${j * 0.15}s` }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-400">
-            {error}
           </div>
         )}
       </div>
 
-      {/* Input */}
-      <div className="px-4 pb-6 pt-3 flex-shrink-0 border-t border-white/5 bg-black">
-        {streaming && (
-          <button
-            onClick={stop}
-            className="w-full mb-2 py-2 rounded-xl text-xs font-medium text-red-400 border border-red-400/20"
-          >
-            ⏹ Parar
-          </button>
-        )}
-        <div className="flex gap-2 items-end">
-          <textarea
+      {/* Input bar */}
+      <div
+        className="sticky bottom-0 px-4 pb-8 pt-3"
+        style={{ background: 'linear-gradient(to top, #0a0014 80%, transparent)' }}
+      >
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+          style={{ background: '#16002a', border: '1px solid #ffffff0d' }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send()
-              }
-            }}
-            placeholder="Pergunte sobre seus dados..."
-            rows={1}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Pergunte ao seu coach…"
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: '#F3F4F6', caretColor: '#00D4A0' }}
             disabled={streaming}
-            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 resize-none disabled:opacity-50 focus:outline-none focus:border-bhr-green/30"
-            style={{ maxHeight: '120px', overflowY: 'auto' }}
           />
           <button
-            onClick={() => send()}
+            onClick={handleSend}
             disabled={!input.trim() || streaming}
-            className="bg-bhr-green text-black font-bold rounded-xl px-4 py-3 text-sm disabled:opacity-30 active:scale-95 transition-transform flex-shrink-0"
+            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold transition-opacity"
+            style={{
+              background: input.trim() && !streaming ? '#00D4A0' : '#1a0030',
+              color: input.trim() && !streaming ? '#000' : '#6B7280',
+              opacity: input.trim() && !streaming ? 1 : 0.5,
+            }}
           >
             ↑
           </button>
@@ -255,54 +452,4 @@ export default function AIAnalysis() {
       </div>
     </div>
   )
-}
-
-function MarkdownView({ text }: { text: string }) {
-  const lines = text.split('\n')
-  const elements: React.ReactNode[] = []
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-
-    if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={i} className="text-sm font-bold text-white mt-4 mb-1.5 first:mt-0">
-          {line.slice(3)}
-        </h2>
-      )
-    } else if (line.startsWith('# ')) {
-      elements.push(
-        <h1 key={i} className="text-base font-bold text-white mt-3 mb-1.5">
-          {line.slice(2)}
-        </h1>
-      )
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      elements.push(
-        <div key={i} className="flex gap-2 text-xs text-gray-300 mb-1">
-          <span className="text-bhr-green flex-shrink-0 mt-0.5">•</span>
-          <span>{renderInline(line.slice(2))}</span>
-        </div>
-      )
-    } else if (line.trim() === '') {
-      elements.push(<div key={i} className="h-1" />)
-    } else {
-      elements.push(
-        <p key={i} className="text-xs text-gray-300 mb-1.5 leading-relaxed">
-          {renderInline(line)}
-        </p>
-      )
-    }
-  }
-
-  return <div>{elements}</div>
-}
-
-function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>
-    }
-    return part
-  })
 }
