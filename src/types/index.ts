@@ -24,6 +24,8 @@ export interface FitbitActivity {
   max_heart_rate: number | null
   steps: number | null
   distance_meter: number | null
+  heart_points: number | null
+  move_minutes: number | null
 }
 
 export interface FitbitRecovery {

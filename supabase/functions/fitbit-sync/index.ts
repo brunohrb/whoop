@@ -125,13 +125,16 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── Buscar todos os dados diários em paralelo ────────────────────────────
-    const [stepsData, distanceData, caloriesData, hrData, spo2Data, activeMinData] = await Promise.allSettled([
-      aggregate("com.google.step_count.delta"),      // passos
-      aggregate("com.google.distance.delta"),         // distância (metros)
-      aggregate("com.google.calories.expended"),      // calorias TOTAIS (inclui BMR)
-      aggregate("com.google.heart_rate.bpm"),         // FC
-      aggregate("com.google.oxygen_saturation"),      // SpO₂
-      aggregate("com.google.active_minutes"),         // minutos ativos
+    const [stepsData, distanceData, caloriesData, hrData, spo2Data, activeMinData, heartPtsData, moveMinData, weightData] = await Promise.allSettled([
+      aggregate("com.google.step_count.delta"),       // passos
+      aggregate("com.google.distance.delta"),          // distância (metros)
+      aggregate("com.google.calories.expended"),       // calorias TOTAIS (inclui BMR)
+      aggregate("com.google.heart_rate.bpm"),          // FC
+      aggregate("com.google.oxygen_saturation"),       // SpO₂
+      aggregate("com.google.active_minutes"),          // minutos ativos
+      aggregate("com.google.heart_minutes"),           // Heart Points (cardio)
+      aggregate("com.google.move_minutes"),            // minutos de movimento
+      aggregate("com.google.weight"),                  // peso corporal
     ])
 
     // Construir maps por data
@@ -174,6 +177,26 @@ Deno.serve(async (req: Request) => {
       return vals.length > 0 ? parseFloat((vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1)) : 0
     })
     const activeMinMap = mapByDate(activeMinData, b => sumInt(b))
+    const heartPtsMap = mapByDate(heartPtsData, b => sumInt(b))
+    const moveMinMap = mapByDate(moveMinData, b => sumInt(b))
+
+    // Peso: salvar o mais recente no perfil
+    if (weightData.status === "fulfilled") {
+      let latestWeight: number | null = null
+      for (const bucket of (weightData.value.bucket ?? []) as Record<string, unknown>[]) {
+        const pts = (bucket.dataset as Record<string, unknown>[])?.[0]?.point as Record<string, unknown>[] ?? []
+        for (const p of pts) {
+          const w = ((p.value as Record<string, unknown>[])?.[0] as Record<string, unknown>)?.fpVal as number ?? 0
+          if (w > 0) latestWeight = parseFloat(w.toFixed(1))
+        }
+      }
+      if (latestWeight) {
+        await supabase.schema("fitbit").from("profiles").upsert(
+          { user_id: user.id, weight_kilogram: latestWeight },
+          { onConflict: "user_id", ignoreDuplicates: false }
+        )
+      }
+    }
 
     if (activeMinData.status === "rejected") errors.active_minutes = activeMinData.reason
     if (stepsData.status === "rejected") errors.steps = stepsData.reason
@@ -213,6 +236,8 @@ Deno.serve(async (req: Request) => {
             max_heart_rate: null,
             steps,
             distance_meter: distance ? Math.round(distance) : null,
+            heart_points: heartPtsMap[date] ?? null,
+            move_minutes: moveMinMap[date] ?? null,
           }
         })
 
