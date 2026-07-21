@@ -106,7 +106,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <BrowserRouter basename="/whoop">
+      <BrowserRouter basename="/saude">
         <Routes>
           <Route path="*" element={<Login />} />
         </Routes>
@@ -115,7 +115,7 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter basename="/whoop">
+    <BrowserRouter basename="/saude">
       <AppWithAutoSync />
     </BrowserRouter>
   )
