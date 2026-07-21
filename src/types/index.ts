@@ -22,6 +22,8 @@ export interface FitbitActivity {
   kilojoule: number | null
   average_heart_rate: number | null
   max_heart_rate: number | null
+  steps: number | null
+  distance_meter: number | null
 }
 
 export interface FitbitRecovery {

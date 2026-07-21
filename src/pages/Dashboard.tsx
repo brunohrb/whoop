@@ -20,11 +20,9 @@ export default function Dashboard() {
   const sleepScore = latestSleep?.sleep_performance_percentage ?? null
   const strain = latestCycle?.strain ?? null
   const calories = kcalFromKj(latestCycle?.kilojoule) || null
-  const hrv = latestRecovery?.hrv_rmssd_milli ? Math.round(latestRecovery.hrv_rmssd_milli) : null
   const restingHR = latestRecovery?.resting_heart_rate ? Math.round(latestRecovery.resting_heart_rate) : null
   const spo2 = latestRecovery?.spo2_percentage?.toFixed(1) ?? null
   const skinTemp = latestRecovery?.skin_temp_celsius?.toFixed(1) ?? null
-  const sleepEff = latestSleep?.sleep_efficiency_percentage?.toFixed(0) ?? null
 
   const totalSleepMs = latestSleep
     ? (latestSleep.total_in_bed_time_milli ?? 0) - (latestSleep.total_awake_time_milli ?? 0)
@@ -158,10 +156,20 @@ export default function Dashboard() {
 
           {/* 2x2 Activity grid */}
           <div className="px-4 mt-3 grid grid-cols-2 gap-2">
-            <ActivityCard icon="💓" label="VFC" value={hrv != null ? `${hrv}` : '--'} unit="ms" />
+            <ActivityCard
+              icon="👟"
+              label="Passos"
+              value={latestCycle?.steps != null ? latestCycle.steps.toLocaleString('pt-BR') : '--'}
+              unit="passos"
+            />
+            <ActivityCard
+              icon="📍"
+              label="Distância"
+              value={latestCycle?.distance_meter != null ? (latestCycle.distance_meter / 1000).toFixed(2) : '--'}
+              unit="km"
+            />
             <ActivityCard icon="❤️" label="FC Repouso" value={restingHR != null ? `${restingHR}` : '--'} unit="bpm" />
             <ActivityCard icon="🏋️" label="Treinos (7 dias)" value={`${workoutsThisWeek}`} unit="realizados" />
-            <ActivityCard icon="😴" label="Eficiência sono" value={sleepEff ?? '--'} unit="%" />
           </div>
 
           {/* Vitals dark cards */}
